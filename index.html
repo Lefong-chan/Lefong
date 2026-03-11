@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>IPTV Player</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="hls.js"></script>
+
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo">IPTV<b>+</b></div>
+  <div class="hsrch">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <input type="text" id="msearch" placeholder="Rechercher une chaîne... (Ctrl+K)">
+  </div>
+  <div class="hright">
+    <div class="sbadge">
+      <div class="sdot load" id="sdot"></div>
+      <span id="stxt">Connexion API...</span>
+    </div>
+    <button class="hbtn desktop-only" onclick="openCmd()">
+      <i class="fa-solid fa-magnifying-glass"></i> Recherche rapide <kbd>Ctrl+K</kbd>
+    </button>
+    <button class="hbtn red" onclick="openModal()">
+      <i class="fa-solid fa-plus"></i> Source
+    </button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sbov" id="sbov" onclick="closeSb()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sbhdr">
+      <div class="sbhdr-label">Bibliothèque</div>
+      <div class="sbtabs">
+        <button class="sbtab active" id="tabC" onclick="switchTab('countries')">
+          <i class="fa-solid fa-earth-europe"></i> Sources
+        </button>
+        <button class="sbtab" id="tabCh" onclick="switchTab('channels')">
+          <i class="fa-solid fa-list"></i> Chaînes
+        </button>
+      </div>
+    </div>
+
+    <!-- PANEL: Sources / Pays -->
+    <div class="sbpanel active" id="panel-countries">
+
+      <!-- Sources list -->
+      <div class="src-list">
+        <div class="src-list-title">
+          <span><i class="fa-solid fa-satellite-dish" style="margin-right:5px;color:var(--accent)"></i>Sources IPTV</span>
+        </div>
+        <div id="srcItems"></div>
+        <button class="add-src-btn" onclick="openModal()">
+          <i class="fa-solid fa-plus"></i> Ajouter une source
+        </button>
+      </div>
+
+      <!-- Groupes de chaînes -->
+      <div class="country-menu">
+        <div class="country-menu-title">
+          <i class="fa-solid fa-earth-europe"></i>
+          Sources par défaut
+        </div>
+        <div class="country-btns" id="countryMenu"></div>
+      </div>
+
+      <!-- Groups -->
+      <div class="clist" id="clist"></div>
+
+    </div>
+
+    <!-- PANEL: Chaînes -->
+    <div class="sbpanel" id="panel-channels">
+      <div class="chpaneltop">
+        <div class="chpnav">
+          <div class="chpname" id="chpname">Toutes les chaînes</div>
+          <button class="backbtn" onclick="filterGroup(null); switchTab('countries');">
+            <i class="fa-solid fa-arrow-left"></i> Retour
+          </button>
+        </div>
+        <div class="chfw">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input class="chfinput" id="chfilter" type="text" placeholder="Filtrer chaînes...">
+        </div>
+      </div>
+      <div class="chlist" id="chlist"></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Welcome -->
+    <div class="welcome" id="welcomeScr" style="display:none;">
+      <div class="welcome-logo">IPTV</div>
+      <div class="welcome-sub">Sélectionnez une source dans la barre de gauche ou ajoutez une nouvelle source.</div>
+      <div class="welcome-cards">
+        <div class="wcard" onclick="openModal('url')">
+          <div class="wcard-icon m3u"><i class="fa-solid fa-link"></i></div>
+          <div class="wcard-title">M3U URL</div>
+          <div class="wcard-desc">Lien direct vers une playlist M3U</div>
+        </div>
+        <div class="wcard" onclick="openModal('xtream')">
+          <div class="wcard-icon xtream"><i class="fa-solid fa-server"></i></div>
+          <div class="wcard-title">Xtream Codes</div>
+          <div class="wcard-desc">Serveur IPTV avec login/pass</div>
+        </div>
+        <div class="wcard" onclick="openModal('file')">
+          <div class="wcard-icon file"><i class="fa-solid fa-file-import"></i></div>
+          <div class="wcard-title">Fichier M3U</div>
+          <div class="wcard-desc">Importer un fichier local</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loadscr" id="loadscr" style="display:none;">
+      <div class="loadlogo">IPTV</div>
+      <div class="loadsub">
+        <i class="fa-solid fa-circle-notch fa-spin" style="margin-right:7px;"></i>
+        <span id="loadtxt">Chargement...</span>
+      </div>
+      <div class="loadprog"><div class="loadbar"></div></div>
+    </div>
+
+    <!-- Grid -->
+    <div class="gridview" id="gridview">
+      <div class="gridtop">
+        <div>
+          <div class="gridttl" id="gridttl">TOUTES LES <span>CHAÎNES</span></div>
+          <div class="gridmeta" id="gridmeta"></div>
+        </div>
+        <div class="vtoggle">
+          <button class="vbtn active" onclick="setView('grid',this)"><i class="fa-solid fa-grip"></i></button>
+          <button class="vbtn" onclick="setView('list',this)"><i class="fa-solid fa-list"></i></button>
+        </div>
+      </div>
+      <div class="chgrid" id="chgrid"></div>
+    </div>
+
+    <!-- Player -->
+    <div class="playerview" id="playerview">
+      <div class="pwrap" id="pwrap">
+        <video id="vid" playsinline></video>
+        <div class="spinov" id="spinov"><div class="spin"></div></div>
+        <div class="playerr" id="playerr">
+          <div class="errico"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="errtitle">FLUX INDISPONIBLE</div>
+          <div class="errmsg" id="errmsg">Impossible de lire cette chaîne.</div>
+          <button class="retrybtn" onclick="retryStream()">
+            <i class="fa-solid fa-rotate-right"></i> Réessayer
+          </button>
+        </div>
+        <div class="playerov">
+          <div class="nowbadge"><i class="fa-solid fa-circle" style="font-size:.4rem;"></i> En direct</div>
+          <div class="nowname" id="nowname">--</div>
+          <div class="nowgrp"  id="nowgrp"></div>
+          <div class="ctrlrow">
+            <button class="cbtn" onclick="prevCh()"><i class="fa-solid fa-backward-step"></i></button>
+            <button class="cbtn big" id="ppbtn" onclick="togglePlay()"><i class="fa-solid fa-pause"></i></button>
+            <button class="cbtn" onclick="nextCh()"><i class="fa-solid fa-forward-step"></i></button>
+            <button class="cbtn" onclick="stopStream()"><i class="fa-solid fa-stop"></i></button>
+            <div class="volgrp">
+              <i class="fa-solid fa-volume-high"></i>
+              <input type="range" id="volr" min="0" max="1" step="0.05" value="1" oninput="setVol(this.value)">
+            </div>
+            <button class="fsbtn" onclick="toggleFS()"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="pbar">
+        <button class="navbtn" onclick="prevCh()"><i class="fa-solid fa-chevron-left"></i> Préc.</button>
+        <button class="navbtn" onclick="nextCh()">Suiv. <i class="fa-solid fa-chevron-right"></i></button>
+        <div class="chctr">Ch. <span id="chcur">--</span> / <span id="chtot">--</span></div>
+        <button class="closebtn" onclick="closePlayer()"><i class="fa-solid fa-xmark"></i> Fermer</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footbrand">IPTV+</div>
+  <div class="footlinks">
+    <a class="footlink" href="tel:+261331926914"><i class="fa-solid fa-phone"></i> +261 33 192 6914</a>
+    <a class="footlink" href="https://facebook.com" target="_blank" rel="noopener"><i class="fa-brands fa-facebook"></i> Le Fong 🟢</a>
+  </div>
+  <div class="footcopy">&copy; 2026 IPTV+</div>
+</footer>
+
+<!-- MOBILE NAV -->
+<nav class="mobilenav">
+  <div class="mnav-inner">
+    <button class="mnbtn active" id="mn-home"    onclick="mnGo('home',this)"><i class="fa-solid fa-house"></i><span>Accueil</span></button>
+    <button class="mnbtn"        id="mn-pays"    onclick="mnGo('pays',this)"><i class="fa-solid fa-earth-americas"></i><span>Sources</span></button>
+    <button class="mnbtn center-btn"             onclick="openModal()"><i class="fa-solid fa-plus"></i><span>Source</span></button>
+    <button class="mnbtn"        id="mn-search"  onclick="openCmd()"><i class="fa-solid fa-magnifying-glass"></i><span>Chercher</span></button>
+    <button class="mnbtn"        id="mn-chaines" onclick="mnGo('chaines',this)"><i class="fa-solid fa-list"></i><span>Chaînes</span></button>
+  </div>
+</nav>
+
+<!-- COMMAND PALETTE -->
+<div class="cmdbg" id="cmdbg">
+  <div class="cmdbox">
+    <div class="cmdhead">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="cmdinput" placeholder="Rechercher une chaîne...">
+      <span class="cmdesc"><kbd>↑↓</kbd> Naviguer &nbsp; <kbd>↵</kbd> Lancer &nbsp; <kbd>Esc</kbd> Fermer</span>
+    </div>
+    <div class="cmdlist" id="cmdlist"></div>
+  </div>
+</div>
+
+<!-- MODAL AJOUTER SOURCE -->
+<div class="modalbg" id="srcModal">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mtitle">AJOUTER UNE SOURCE</div>
+      <button class="mclose" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody" id="modalBody">
+
+      <!-- Sélecteur de type -->
+      <div class="src-type-tabs">
+        <button class="src-type-btn selected" id="typeBtn-url" onclick="selectSrcType('url',this)">
+          <i class="fa-solid fa-link"></i><span>M3U URL</span>
+        </button>
+        <button class="src-type-btn" id="typeBtn-xtream" onclick="selectSrcType('xtream',this)">
+          <i class="fa-solid fa-server"></i><span>Xtream</span>
+        </button>
+        <button class="src-type-btn" id="typeBtn-file" onclick="selectSrcType('file',this)">
+          <i class="fa-solid fa-file-import"></i><span>Fichier</span>
+        </button>
+      </div>
+
+      <!-- Nom commun -->
+      <div class="fgroup">
+        <label class="flabel">Nom de la source</label>
+        <input class="finput" id="srcName" type="text" placeholder="Ex: Ma chaîne française">
+      </div>
+
+      <!-- Panel M3U URL -->
+      <div class="type-panel active" id="panel-url">
+        <div class="fgroup">
+          <label class="flabel">URL M3U / M3U8</label>
+          <input class="finput" id="m3uUrl" type="url" placeholder="https://exemple.com/playlist.m3u">
+        </div>
+      </div>
+
+      <!-- Panel Xtream Codes -->
+      <div class="type-panel" id="panel-xtream">
+        <div class="xt-info">
+          <b>Xtream Codes</b> — L'API contacte directement votre serveur avec vos identifiants et charge toutes les chaînes live disponibles.
+        </div>
+        <div class="fgroup">
+          <label class="flabel">URL du serveur</label>
+          <input class="finput" id="xtHost" type="url" placeholder="http://votre-serveur.com:8080">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Nom d'utilisateur</label>
+          <input class="finput" id="xtUser" type="text" placeholder="username">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Mot de passe</label>
+          <input class="finput" id="xtPass" type="password" placeholder="password">
+        </div>
+        <div id="xtServerInfo" style="display:none;"></div>
+      </div>
+
+      <!-- Panel Fichier -->
+      <div class="type-panel" id="panel-file">
+        <div class="fgroup">
+          <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Glissez un fichier <strong>.m3u</strong> ou <strong>.m3u8</strong> ici</p>
+            <p style="font-size:.68rem;">ou cliquez pour sélectionner</p>
+          </div>
+          <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt" style="display:none;">
+          <div class="file-name" id="fileName">
+            <i class="fa-solid fa-file-lines"></i>
+            <span id="fileNameTxt"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="mfoot">
+      <button class="mbtn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="mbtn-add" id="addSrcBtn" onclick="addSource()">
+        <i class="fa-solid fa-plus"></i> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-t" id="toastt"></div>
+  <div class="toast-s" id="toasts"></div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — logique frontend
+     Toutes les requêtes passent par l'API Node.js (localhost:3001)
+     ============================================================ -->
+<script>
+/* ============================================================
+   CONFIG API
+   ============================================================ */
+const API_BASE = 'https://lefong.vercel.app'; 
+
+
+/* ============================================================
+   ÉTAT GLOBAL
+   ============================================================ */
+var channels = [], filtered = [], groups = {};
+var curCh = null, curIdx = -1, curGroup = null;
+var hlsObj = null, curUrl = '', retries = 0;
+var MAX_RETRY = 3;
+var cmdRes = [], cmdSel = 0;
+var sources = [];          // sources sauvegardées localement
+var curSrcId = null;
+var modalSrcType = 'url';
+var pendingFileData = null;
+
+/* ============================================================
+   INITIALISATION
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', function () {
+  loadLocalSources();
+  fetchDefaultSources(); // récupère la liste des sources depuis l'API
+});
+
+/* Charger les sources ajoutées manuellement (localStorage) */
+function loadLocalSources() {
+  try { sources = JSON.parse(localStorage.getItem('iptv_custom_sources') || '[]'); } catch (e) { sources = []; }
+  renderSrcList();
+}
+
+/* Récupérer les sources M3U par défaut depuis l'API */
+function fetchDefaultSources() {
+  setStatus('load', 'Connexion API...');
+  fetch(API_BASE + '/api/sources')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) throw new Error(data.error || 'Erreur API');
+      // Construire le menu des pays
+      renderCountryMenu(data.sources);
+      setStatus('live', 'API connectée');
+      // Auto-charger la première source
+      if (data.sources.length > 0) {
+        loadDefaultSource(data.sources[0]);
+      } else {
+        document.getElementById('welcomeScr').style.display = 'flex';
+      }
+    })
+    .catch(function (err) {
+      setStatus('err', 'API hors ligne');
+      showToast('<i class="fa-solid fa-triangle-exclamation"></i> API introuvable',
+        'Lancez: node api/channels.js');
+      document.getElementById('welcomeScr').style.display = 'flex';
+      console.error('API error:', err);
+    });
+}
+
+/* ============================================================
+   MENU SOURCES PAR DÉFAUT (API)
+   ============================================================ */
+function renderCountryMenu(apiSources) {
+  var el = document.getElementById('countryMenu');
+  if (!el) return;
+  el.innerHTML = '';
+  (apiSources || []).forEach(function (s) {
+    var btn = document.createElement('button');
+    btn.className = 'country-btn';
+    btn.setAttribute('data-id', 'api_' + s.id);
+    var badge = s.chCount ? (' <span style="font-size:.62rem;color:var(--t3);">('+s.chCount+')</span>') : '';
+    btn.innerHTML = '<span class="country-label">' + xss(s.name) + badge + '</span>';
+    btn.onclick = function () {
+      document.querySelectorAll('.country-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      loadDefaultSource(s);
+    };
+    el.appendChild(btn);
+  });
+}
+
+/* Charger les chaînes d'une source par défaut via GET /api/channels/:id */
+function loadDefaultSource(src) {
+  curSrcId = 'api_' + src.id;
+  document.querySelectorAll('.country-btn').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-id') === curSrcId);
+  });
+  showLoading('Chargement des chaînes...');
+
+  fetch(API_BASE + '/api/channels/' + src.id)
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) throw new Error(data.error || 'Erreur API');
+      applyChannels(data.channels, data.source, src.name);
+    })
+    .catch(function (err) {
+      hideLoading();
+      setStatus('err', 'Erreur chargement');
+      showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur', err.message.substring(0, 60));
+      document.getElementById('welcomeScr').style.display = 'flex';
+    });
+}
+
+/* ============================================================
+   SOURCES PERSONNALISÉES (localStorage + API)
+   ============================================================ */
+function saveLocalSources() {
+  var toSave = sources.map(function (s) {
+    return { id: s.id, name: s.name, type: s.type, url: s.url, host: s.host, chCount: s.chCount || 0 };
+  });
+  try { localStorage.setItem('iptv_custom_sources', JSON.stringify(toSave)); } catch (e) {}
+}
+
+function renderSrcList() {
+  var el = document.getElementById('srcItems');
+  if (!sources.length) {
+    el.innerHTML = '<div style="text-align:center;padding:10px 4px;color:var(--t3);font-size:.75rem;"><i class="fa-solid fa-satellite-dish" style="display:block;font-size:1.1rem;margin-bottom:6px;color:var(--accent);"></i>Aucune source ajoutée</div>';
+    return;
+  }
+  var icons = { url: 'fa-solid fa-link', 'file-content': 'fa-solid fa-file-lines', xtream: 'fa-solid fa-server' };
+  var typeClass = { url: 'm3u', xtream: 'xtream', 'file-content': 'file' };
+  el.innerHTML = sources.map(function (s) {
+    var ico = icons[s.type] || 'fa-solid fa-tv';
+    var tc  = typeClass[s.type] || 'm3u';
+    return '<div class="src-item' + (curSrcId === s.id ? ' active' : '') + '" onclick="loadCustomSource(\'' + s.id + '\')">' +
+      '<div class="src-icon ' + tc + '"><i class="' + ico + '"></i></div>' +
+      '<div style="flex:1;min-width:0;"><div class="src-name">' + xss(s.name) + '</div>' +
+      '<div class="src-meta">' + (s.chCount ? s.chCount + ' ch.' : s.type.toUpperCase()) + '</div></div>' +
+      '<button class="src-del" onclick="delSource(event,\'' + s.id + '\')" title="Supprimer"><i class="fa-solid fa-trash"></i></button></div>';
+  }).join('');
+}
+
+function loadCustomSource(id) {
+  var s = sources.find(function (x) { return x.id === id; });
+  if (!s) return;
+  curSrcId = id;
+  document.querySelectorAll('.country-btn').forEach(function (b) { b.classList.remove('active'); });
+  renderSrcList();
+
+  if (s.type === 'file-content') {
+    // Fichier local — données déjà en mémoire
+    if (!s.data) { showToast('<i class="fa-solid fa-exclamation-circle"></i> Vide', 'Données manquantes'); return; }
+    showLoading('Analyse du fichier...');
+    setTimeout(function () {
+      var chs = parseM3ULocal(s.data);
+      applyChannels(chs, s.name, s.name);
+    }, 10);
+  } else if (s.type === 'url') {
+    // M3U URL — passer par l'API POST /api/m3u/url
+    showLoading('Chargement ' + s.name + '...');
+    fetch(API_BASE + '/api/m3u/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: s.url, name: s.name }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Erreur API');
+        s.chCount = data.channels.length; saveLocalSources(); renderSrcList();
+        applyChannels(data.channels, data.source, s.name);
+      })
+      .catch(function (err) {
+        hideLoading(); setStatus('err', 'Erreur');
+        showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur', err.message.substring(0, 60));
+      });
+  } else if (s.type === 'xtream') {
+    // Xtream — passer par l'API POST /api/xtream
+    showLoading('Connexion serveur Xtream...');
+    fetch(API_BASE + '/api/xtream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host: s.host, username: s.user, password: s.pass }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Erreur Xtream');
+        s.chCount = data.channels.length; saveLocalSources(); renderSrcList();
+        applyChannels(data.channels, data.source, s.name);
+      })
+      .catch(function (err) {
+        hideLoading(); setStatus('err', 'Erreur Xtream');
+        showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur Xtream', err.message.substring(0, 60));
+      });
+  }
+}
+
+function delSource(e, id) {
+  e.stopPropagation();
+  if (!confirm('Supprimer cette source ?')) return;
+  sources = sources.filter(function (s) { return s.id !== id; });
+  saveLocalSources(); renderSrcList();
+  if (curSrcId === id) {
+    curSrcId = null; channels = []; filtered = []; groups = {};
+    document.getElementById('gridview').classList.remove('show');
+    document.getElementById('playerview').classList.remove('show');
+    document.getElementById('welcomeScr').style.display = 'flex';
+    setStatus('live', 'Aucune source'); renderCountries(); renderChList([]);
+  }
+  showToast('<i class="fa-solid fa-trash"></i> Supprimée', '');
+}
+
+/* ============================================================
+   MODAL AJOUTER SOURCE
+   ============================================================ */
+function openModal(type) {
+  document.getElementById('srcModal').classList.add('open');
+  if (type) selectSrcType(type, document.getElementById('typeBtn-' + type));
+  document.getElementById('srcName').focus();
+  pendingFileData = null;
+  document.getElementById('fileName').classList.remove('show');
+  document.getElementById('m3uUrl').value   = '';
+  document.getElementById('xtHost').value   = '';
+  document.getElementById('xtUser').value   = '';
+  document.getElementById('xtPass').value   = '';
+  document.getElementById('srcName').value  = '';
+  document.getElementById('xtServerInfo').style.display = 'none';
+  var old = document.getElementById('fetchErrBox'); if (old) old.remove();
+}
+
+function closeModal() {
+  document.getElementById('srcModal').classList.remove('open');
+  var old = document.getElementById('fetchErrBox'); if (old) old.remove();
+}
+
+function selectSrcType(type, btnEl) {
+  modalSrcType = type;
+  document.querySelectorAll('.src-type-btn').forEach(function (b) { b.classList.remove('selected'); });
+  if (btnEl) btnEl.classList.add('selected');
+  ['url', 'xtream', 'file'].forEach(function (t) { document.getElementById('panel-' + t).classList.remove('active'); });
+  document.getElementById('panel-' + type).classList.add('active');
+  var old = document.getElementById('fetchErrBox'); if (old) old.remove();
+}
+
+// File drop
+document.getElementById('fileDrop').addEventListener('dragover', function (e) { e.preventDefault(); this.classList.add('dragover'); });
+document.getElementById('fileDrop').addEventListener('dragleave', function () { this.classList.remove('dragover'); });
+document.getElementById('fileDrop').addEventListener('drop', function (e) {
+  e.preventDefault(); this.classList.remove('dragover');
+  var file = e.dataTransfer.files[0]; if (file) readFile(file);
+});
+document.getElementById('fileInput').addEventListener('change', function (e) { if (e.target.files[0]) readFile(e.target.files[0]); });
+
+function readFile(file) {
+  document.getElementById('fileNameTxt').textContent = file.name;
+  document.getElementById('fileName').classList.add('show');
+  if (!document.getElementById('srcName').value)
+    document.getElementById('srcName').value = file.name.replace(/\.(m3u8?|txt)$/i, '');
+  var reader = new FileReader();
+  reader.onload = function (e) { pendingFileData = e.target.result; };
+  reader.readAsText(file);
+}
+
+/* Soumettre le formulaire */
+function addSource() {
+  var name = document.getElementById('srcName').value.trim() || ('Source ' + (sources.length + 1));
+  var old = document.getElementById('fetchErrBox'); if (old) old.remove();
+  setModalLoading(true);
+
+  if (modalSrcType === 'url') {
+    var url = document.getElementById('m3uUrl').value.trim();
+    if (!url) { setModalLoading(false); showInlineErr('Entrez une URL valide.'); return; }
+
+    // Passer par l'API pour éviter les problèmes CORS
+    fetch(API_BASE + '/api/m3u/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url, name: name }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Erreur');
+        var s = { id: uid(), name: name, type: 'url', url: url, chCount: data.channels.length };
+        sources.push(s); saveLocalSources(); renderSrcList();
+        curSrcId = s.id; renderSrcList();
+        applyChannels(data.channels, data.source, name);
+        setModalLoading(false); closeModal();
+      })
+      .catch(function (err) { setModalLoading(false); showInlineErr(err.message); });
+
+  } else if (modalSrcType === 'xtream') {
+    var host = document.getElementById('xtHost').value.trim().replace(/\/$/, '');
+    var user = document.getElementById('xtUser').value.trim();
+    var pass = document.getElementById('xtPass').value.trim();
+    if (!host || !user || !pass) { setModalLoading(false); showInlineErr("Remplissez tous les champs : URL serveur, nom d'utilisateur et mot de passe."); return; }
+
+    // Connexion Xtream via l'API — récupère TOUTES les chaînes du serveur
+    fetch(API_BASE + '/api/xtream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host: host, username: user, password: pass }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Erreur Xtream');
+
+        // Afficher infos serveur dans la modal
+        if (data.serverInfo) {
+          var si = data.serverInfo;
+          document.getElementById('xtServerInfo').style.display = 'block';
+          document.getElementById('xtServerInfo').innerHTML =
+            '<div class="xt-server-info">' +
+            (si.expirationDate ? '<div class="row"><span>Expiration</span><span class="val">' + si.expirationDate + '</span></div>' : '') +
+            (si.maxConnections ? '<div class="row"><span>Connexions max</span><span class="val">' + si.maxConnections + '</span></div>' : '') +
+            '<div class="row"><span>Chaînes live</span><span class="val" style="color:var(--green)">' + data.channels.length + '</span></div>' +
+            '<div class="row"><span>Catégories</span><span class="val">' + (data.categories ? data.categories.length : '?') + '</span></div>' +
+            '</div>';
+        }
+
+        var s = { id: uid(), name: name, type: 'xtream', host: host, user: user, pass: pass, url: host, chCount: data.channels.length };
+        sources.push(s); saveLocalSources();
+        curSrcId = s.id; renderSrcList();
+        applyChannels(data.channels, data.source, name);
+        setModalLoading(false); closeModal();
+      })
+      .catch(function (err) { setModalLoading(false); showInlineErr(err.message); });
+
+  } else if (modalSrcType === 'file') {
+    if (!pendingFileData) { setModalLoading(false); showInlineErr('Sélectionnez un fichier .m3u ou .m3u8'); return; }
+
+    // Envoyer le contenu à l'API pour parsing
+    fetch(API_BASE + '/api/m3u/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: pendingFileData, name: name }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Erreur parsing');
+        var s = { id: uid(), name: name, type: 'file-content', data: pendingFileData, chCount: data.channels.length };
+        sources.push(s); saveLocalSources();
+        curSrcId = s.id; renderSrcList();
+        applyChannels(data.channels, data.source, name);
+        setModalLoading(false); closeModal();
+      })
+      .catch(function (err) { setModalLoading(false); showInlineErr(err.message); });
+  }
+}
+
+function setModalLoading(on) {
+  var btn = document.getElementById('addSrcBtn');
+  if (on) { btn.disabled = true;  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Connexion...'; }
+  else    { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus"></i> Ajouter'; }
+}
+
+function showInlineErr(msg) {
+  var old = document.getElementById('fetchErrBox'); if (old) old.remove();
+  var div = document.createElement('div');
+  div.id = 'fetchErrBox'; div.className = 'err-inline';
+  div.innerHTML =
+    '<div class="err-inline-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Erreur de connexion</div>' +
+    '<div class="err-inline-msg">' + xss(msg) + '</div>' +
+    '<div class="err-inline-tips"><strong>Solutions :</strong><br>' +
+    '&#x2022; Vérifiez que l\'API tourne : <code>node api/channels.js</code><br>' +
+    '&#x2022; Vérifiez l\'URL du serveur et les identifiants<br>' +
+    '&#x2022; Le serveur Xtream est peut-être hors ligne</div>';
+  document.getElementById('modalBody').appendChild(div);
+  document.getElementById('modalBody').scrollTop = 9999;
+}
+
+/* ============================================================
+   PARSEUR M3U LOCAL (pour fichiers uploadés)
+   ============================================================ */
+function parseM3ULocal(txt) {
+  var lines = txt.split(/\r?\n/); var chs = []; var cur = null;
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i].trim();
+    if (l.indexOf('#EXTINF') === 0) {
+      cur = { id: chs.length, name: '', url: '', logo: '', group: 'Divers' };
+      var nm = l.match(/,(.+)$/); if (nm) cur.name = nm[1].trim();
+      var lg = l.match(/tvg-logo="([^"]*)"/i); if (lg && lg[1].trim()) cur.logo = lg[1].trim();
+      var gr = l.match(/group-title="([^"]*)"/i); if (gr && gr[1].trim()) cur.group = gr[1].trim();
+    } else if (l && l.indexOf('#') !== 0 && cur) {
+      cur.url = l;
+      if (cur.name && cur.url) chs.push(cur);
+      cur = null;
+    }
+  }
+  return chs;
+}
+
+/* ============================================================
+   APPLIQUER LES CHAÎNES REÇUES
+   ============================================================ */
+function applyChannels(chs, sourceName, displayName) {
+  if (!chs || !chs.length) {
+    hideLoading(); setStatus('err', 'Aucune chaîne');
+    showToast('<i class="fa-solid fa-exclamation-circle"></i> Vide', 'Aucune chaîne trouvée');
+    document.getElementById('welcomeScr').style.display = 'flex';
+    return;
+  }
+  // Normaliser IDs
+  chs.forEach(function (ch, i) { ch.id = i; });
+  channels = chs; groups = buildGroups(chs); filtered = chs.slice(); curGroup = null;
+  renderCountries(); renderGrid(chs, 'TOUTES LES'); renderChList(chs);
+  hideLoading();
+  document.getElementById('gridview').classList.add('show');
+  document.getElementById('welcomeScr').style.display = 'none';
+  var gc = Object.keys(groups).length;
+  setStatus('live', chs.length + ' ch / ' + gc + ' gr.');
+  document.getElementById('gridmeta').textContent = chs.length + ' chaînes / ' + gc + ' groupes / ' + (displayName || sourceName || '');
+  showToast('<i class="fa-solid fa-check-circle"></i> ' + xss(displayName || sourceName || ''), chs.length + ' chaînes chargées');
+}
+
+/* ============================================================
+   UTILITAIRES
+   ============================================================ */
+function uid() { return 'src_' + Date.now() + '_' + Math.random().toString(36).slice(2); }
+function xss(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function buildGroups(chs) { var g = {}; chs.forEach(function (ch) { if (!g[ch.group]) g[ch.group] = []; g[ch.group].push(ch); }); return g; }
+
+function setStatus(type, txt) {
+  var map = { live: 'live', err: 'err', load: 'load' };
+  document.getElementById('sdot').className = 'sdot ' + (map[type] || '');
+  document.getElementById('stxt').textContent = txt;
+}
+
+function showLoading(txt) {
+  document.getElementById('welcomeScr').style.display = 'none';
+  document.getElementById('gridview').classList.remove('show');
+  document.getElementById('loadscr').style.display = 'flex';
+  document.getElementById('loadtxt').textContent = txt || 'Chargement...';
+  setStatus('load', 'Chargement...');
+}
+function hideLoading() { document.getElementById('loadscr').style.display = 'none'; }
+
+function gIcon(g) {
+  var s = g.toLowerCase();
+  if (/sport|foot|nba|tennis|rugby|basket/.test(s)) return 'fa-solid fa-futbol';
+  if (/news|info|actua|journal|bfm/.test(s))        return 'fa-solid fa-newspaper';
+  if (/kids|enfant|junior|cartoon|gulli/.test(s))   return 'fa-solid fa-star';
+  if (/cine|movie|film|hbo|prime|netflix|canal/.test(s)) return 'fa-solid fa-film';
+  if (/music|musique|mtv|clip/.test(s))             return 'fa-solid fa-music';
+  if (/anime|manga/.test(s))                        return 'fa-solid fa-dragon';
+  if (/doc|nature|discovery|national/.test(s))      return 'fa-solid fa-video';
+  if (/africa|afrique/.test(s))                     return 'fa-solid fa-earth-africa';
+  return 'fa-solid fa-tv';
+}
+
+/* ============================================================
+   RENDER — grille, liste, groupes
+   ============================================================ */
+function renderCountries() {
+  var list = document.getElementById('clist');
+  list.innerHTML = '';
+  if (!channels.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:.78rem;"><i class="fa-solid fa-arrow-up" style="display:block;font-size:.9rem;margin-bottom:8px;"></i>Ajoutez une source</div>';
+    return;
+  }
+  var allEl = document.createElement('div');
+  allEl.className = 'citem' + (curGroup === null ? ' active' : '');
+  allEl.innerHTML = '<i class="fa-solid fa-globe cico"></i><span class="cname">Toutes les chaînes</span><span class="ccnt">' + channels.length + '</span>';
+  allEl.onclick = function () { filterGroup(null); };
+  list.appendChild(allEl);
+  var sorted = Object.entries(groups).sort(function (a, b) { return a[0].localeCompare(b[0]); });
+  sorted.forEach(function (entry) {
+    var g = entry[0]; var chs = entry[1];
+    var el = document.createElement('div');
+    el.className = 'citem' + (curGroup === g ? ' active' : '');
+    el.innerHTML = '<i class="' + gIcon(g) + ' cico"></i><span class="cname" title="' + xss(g) + '">' + xss(g) + '</span><span class="ccnt">' + chs.length + '</span>';
+    el.onclick = function () { filterGroup(g); };
+    list.appendChild(el);
+  });
+}
+
+function filterGroup(g) {
+  curGroup = g;
+  var chs = g ? (groups[g] || []) : channels;
+  filtered = chs.slice();
+  renderGrid(chs, g ? g.toUpperCase() : 'TOUTES LES');
+  renderChList(chs); renderCountries();
+  document.getElementById('gridmeta').textContent = chs.length + ' chaînes' + (g ? ' / ' + g : '');
+  if (g) { document.getElementById('chpname').textContent = g; switchTab('channels'); }
+  closeSb(); setMn('home');
+}
+
+function renderGrid(chs, titleStr) {
+  var parts = titleStr.split(' '); var last = parts.pop();
+  document.getElementById('gridttl').innerHTML = parts.join(' ') + ' <span>' + last + '</span>';
+  var grid = document.getElementById('chgrid'); grid.innerHTML = '';
+  chs.forEach(function (ch, idx) {
+    var card = document.createElement('div');
+    card.className = 'gcard' + (curCh && curCh.id === ch.id ? ' active' : '');
+    card.dataset.idx = idx;
+    var th = ch.logo
+      ? '<img src="' + xss(ch.logo) + '" loading="lazy" onerror="this.parentNode.innerHTML=\'<span class=cardtxt>' + xss(ch.name.substring(0,18)) + '</span>\'" alt="">'
+      : '<span class="cardtxt">' + xss(ch.name.substring(0, 18)) + '</span>';
+    card.innerHTML =
+      '<div class="cardthumb">' + th + '<div class="playov"><i class="fa-solid fa-play"></i></div></div>' +
+      '<div class="cardnum">' + (idx + 1) + '</div>' +
+      '<div class="cardbody"><div class="cardname">' + xss(ch.name) + '</div><div class="cardgrp">' + xss(ch.group) + '</div></div>';
+    card.onclick = function () { play(ch, idx); };
+    grid.appendChild(card);
+  });
+}
+
+function renderChList(chs) {
+  var list = document.getElementById('chlist'); list.innerHTML = '';
+  chs.forEach(function (ch, idx) {
+    var item = document.createElement('div');
+    item.className = 'chitem' + (curCh && curCh.id === ch.id ? ' active' : '');
+    item.dataset.chidx = idx;
+    var logo = ch.logo
+      ? '<img src="' + xss(ch.logo) + '" loading="lazy" onerror="this.style.display=\'none\'" alt="">'
+      : xss(ch.name.substring(0, 4));
+    item.innerHTML =
+      '<span class="chnbadge">' + (idx + 1) + '</span>' +
+      '<div class="chlogo">' + logo + '</div>' +
+      '<div class="chinfo"><div class="chn">' + xss(ch.name) + '</div><div class="chg">' + xss(ch.group) + '</div></div>' +
+      '<i class="fa-solid fa-play chpico"></i>';
+    item.onclick = function () { play(ch, idx); };
+    list.appendChild(item);
+  });
+}
+
+/* ============================================================
+   LECTURE
+   ============================================================ */
+function play(ch, idx) {
+  curCh = ch; curIdx = idx; retries = 0;
+  document.querySelectorAll('.gcard').forEach(function (c) { c.classList.remove('active'); });
+  document.querySelectorAll('.chitem').forEach(function (c) { c.classList.remove('active'); });
+  var card = document.querySelector('.gcard[data-idx="' + idx + '"]');
+  if (card) card.classList.add('active');
+  var item = document.querySelector('.chitem[data-chidx="' + idx + '"]');
+  if (item) { item.classList.add('active'); item.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  document.getElementById('nowname').textContent = ch.name;
+  document.getElementById('nowgrp').textContent  = ch.group;
+  document.getElementById('chcur').textContent   = idx + 1;
+  document.getElementById('chtot').textContent   = filtered.length;
+  showPV(); loadStream(ch.url);
+  showToast('<i class="fa-solid fa-play"></i> ' + xss(ch.name), ch.group);
+  setStatus('load', ch.name); setMn('home'); closeSb();
+}
+
+function showPV() {
+  document.getElementById('gridview').classList.remove('show');
+  document.getElementById('playerview').classList.add('show');
+}
+
+function closePlayer() {
+  stopStream();
+  document.getElementById('playerview').classList.remove('show');
+  document.getElementById('gridview').classList.add('show');
+  setStatus('live', channels.length + ' ch');
+}
+
+function loadStream(url) {
+  curUrl = url;
+  var v = document.getElementById('vid');
+  showSpin();
+  document.getElementById('playerr').classList.remove('show');
+  document.getElementById('ppbtn').innerHTML = '<i class="fa-solid fa-pause"></i>';
+  if (hlsObj) { hlsObj.destroy(); hlsObj = null; }
+  v.pause(); v.removeAttribute('src'); v.load();
+  var isHls = /\.m3u8($|\?)|\/m3u8|m3u8/i.test(url);
+  if (Hls.isSupported() && isHls) doHls(url, v);
+  else if (v.canPlayType('application/vnd.apple.mpegurl') && isHls) doNative(url, v);
+  else doNative(url, v);
+}
+
+function doHls(url, v) {
+  hlsObj = new Hls({ enableWorker:true, lowLatencyMode:true, backBufferLength:60, maxBufferLength:30, maxMaxBufferLength:600, fragLoadingTimeOut:20000, manifestLoadingTimeOut:15000, levelLoadingTimeOut:15000 });
+  hlsObj.loadSource(url); hlsObj.attachMedia(v);
+  hlsObj.once(Hls.Events.MANIFEST_PARSED, function () {
+    v.play().then(function () { hideSpin(); setStatus('live', curCh ? curCh.name : ''); }).catch(function () { hideSpin(); });
+  });
+  hlsObj.on(Hls.Events.ERROR, function (e, d) {
+    if (!d.fatal) return;
+    if (d.type === Hls.ErrorTypes.NETWORK_ERROR && retries < MAX_RETRY) { retries++; setTimeout(function () { if (hlsObj) hlsObj.startLoad(); }, 1500 * retries); }
+    else if (d.type === Hls.ErrorTypes.MEDIA_ERROR && retries < MAX_RETRY) { retries++; hlsObj.recoverMediaError(); }
+    else { hlsObj.destroy(); hlsObj = null; doNative(url, v); }
+  });
+}
+
+function doNative(url, v) {
+  v.src = url; v.load(); var ok = false;
+  v.addEventListener('canplay', function onCP() {
+    v.removeEventListener('canplay', onCP);
+    if (!ok) { ok = true; hideSpin(); setStatus('live', curCh ? curCh.name : ''); }
+  });
+  v.addEventListener('error', function onE() {
+    v.removeEventListener('error', onE);
+    if (!ok) showErrP('Flux inaccessible ou format non supporté');
+  });
+  v.play()
+    .then(function () { if (!ok) { ok = true; hideSpin(); setStatus('live', curCh ? curCh.name : ''); } })
+    .catch(function () {
+      setTimeout(function () {
+        if (v.readyState >= 3) { hideSpin(); setStatus('live', curCh ? curCh.name : ''); }
+        else if (v.error) showErrP('Erreur : ' + (v.error.message || 'inconnue'));
+      }, 3500);
+    });
+}
+
+function showSpin() { document.getElementById('spinov').classList.add('show'); }
+function hideSpin() { document.getElementById('spinov').classList.remove('show'); }
+
+function showErrP(msg) {
+  hideSpin();
+  document.getElementById('playerr').classList.add('show');
+  document.getElementById('errmsg').textContent = msg;
+  setStatus('err', 'Erreur flux');
+}
+
+function retryStream() { if (!curCh) return; retries = 0; document.getElementById('playerr').classList.remove('show'); loadStream(curCh.url); }
+
+function stopStream() {
+  var v = document.getElementById('vid');
+  if (hlsObj) { hlsObj.destroy(); hlsObj = null; }
+  v.pause(); v.removeAttribute('src'); v.load();
+  hideSpin(); document.getElementById('playerr').classList.remove('show');
+}
+
+function togglePlay() {
+  var v = document.getElementById('vid'); var b = document.getElementById('ppbtn');
+  if (v.paused) { v.play(); b.innerHTML = '<i class="fa-solid fa-pause"></i>'; }
+  else { v.pause(); b.innerHTML = '<i class="fa-solid fa-play"></i>'; }
+}
+
+function setVol(val) { document.getElementById('vid').volume = parseFloat(val); }
+
+function toggleFS() {
+  var w = document.getElementById('pwrap');
+  if (!document.fullscreenElement) w.requestFullscreen().catch(function () {});
+  else document.exitFullscreen();
+}
+
+function nextCh() { if (!filtered.length) return; var n = (curIdx + 1) % filtered.length; play(filtered[n], n); }
+function prevCh() { if (!filtered.length) return; var p = (curIdx - 1 + filtered.length) % filtered.length; play(filtered[p], p); }
+
+/* ============================================================
+   RECHERCHE
+   ============================================================ */
+document.getElementById('chfilter').addEventListener('input', function () {
+  var q = this.value.toLowerCase();
+  var base = curGroup ? (groups[curGroup] || []) : channels;
+  renderChList(q ? base.filter(function (ch) { return ch.name.toLowerCase().indexOf(q) >= 0 || ch.group.toLowerCase().indexOf(q) >= 0; }) : base);
+});
+
+document.getElementById('msearch').addEventListener('input', function () {
+  if (!channels.length) return;
+  var q = this.value.toLowerCase();
+  var base = curGroup ? (groups[curGroup] || []) : channels;
+  var res = q ? base.filter(function (ch) { return ch.name.toLowerCase().indexOf(q) >= 0 || ch.group.toLowerCase().indexOf(q) >= 0; }) : base;
+  filtered = res;
+  renderGrid(res, q ? 'RÉSULTATS' : (curGroup ? curGroup.toUpperCase() : 'TOUTES LES'));
+  renderChList(res);
+  document.getElementById('gridmeta').textContent = res.length + ' chaîne' + (res.length !== 1 ? 's' : '') + (q ? ' pour "' + q + '"' : '');
+});
+
+/* ============================================================
+   COMMAND PALETTE
+   ============================================================ */
+function openCmd() {
+  if (!channels.length) return;
+  document.getElementById('cmdbg').classList.add('open');
+  var inp = document.getElementById('cmdinput');
+  inp.value = ''; inp.focus(); cmdSel = 0; buildCmd('');
+}
+function closeCmd() { document.getElementById('cmdbg').classList.remove('open'); }
+
+document.getElementById('cmdinput').addEventListener('input', function () { cmdSel = 0; buildCmd(this.value); });
+
+function buildCmd(q) {
+  q = q.toLowerCase().trim();
+  cmdRes = q
+    ? channels.filter(function (ch) { return ch.name.toLowerCase().indexOf(q) >= 0 || ch.group.toLowerCase().indexOf(q) >= 0; }).slice(0, 30)
+    : channels.slice(0, 20);
+  renderCmdList();
+}
+
+function renderCmdList() {
+  var el = document.getElementById('cmdlist');
+  if (!cmdRes.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:.82rem;"><i class="fa-solid fa-circle-xmark" style="display:block;font-size:1.3rem;margin-bottom:8px;"></i>Aucun résultat</div>';
+    return;
+  }
+  el.innerHTML = '<div class="cmdsec"><i class="fa-solid fa-tv" style="margin-right:5px;"></i>Chaînes (' + cmdRes.length + ')</div>' +
+    cmdRes.map(function (ch, i) {
+      var logo = ch.logo ? '<img src="' + xss(ch.logo) + '" onerror="this.style.display=\'none\'" alt="">' : xss(ch.name.substring(0, 4));
+      return '<div class="cmditem' + (i === cmdSel ? ' sel' : '') + '" data-ci="' + i + '">' +
+        '<div class="cmdlogo">' + logo + '</div>' +
+        '<div><div class="cmdcn">' + xss(ch.name) + '</div><div class="cmdcg">' + xss(ch.group) + '</div></div></div>';
+    }).join('');
+  el.querySelectorAll('.cmditem').forEach(function (it, i) { it.onclick = function () { launchCmd(i); }; });
+  var sel = el.querySelector('.sel'); if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+
+function launchCmd(i) {
+  var ch = cmdRes[i]; if (!ch) return;
+  closeCmd();
+  var ri = filtered.findIndex(function (c) { return c.id === ch.id; });
+  play(ch, ri >= 0 ? ri : 0);
+}
+
+document.getElementById('cmdinput').addEventListener('keydown', function (e) {
+  if (e.key === 'ArrowDown') { cmdSel = Math.min(cmdSel + 1, cmdRes.length - 1); renderCmdList(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { cmdSel = Math.max(cmdSel - 1, 0); renderCmdList(); e.preventDefault(); }
+  else if (e.key === 'Enter') launchCmd(cmdSel);
+  else if (e.key === 'Escape') closeCmd();
+});
+
+document.getElementById('cmdbg').addEventListener('click', function (e) {
+  if (e.target === document.getElementById('cmdbg')) closeCmd();
+});
+
+document.addEventListener('keydown', function (e) {
+  var inInput = ['INPUT', 'TEXTAREA'].indexOf(document.activeElement.tagName) >= 0;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmd(); return; }
+  if (inInput) return;
+  var inP = document.getElementById('playerview').classList.contains('show');
+  if (e.key === 'Escape') { if (inP) closePlayer(); else closeCmd(); return; }
+  if (e.key === 'ArrowRight' && inP) { nextCh(); return; }
+  if (e.key === 'ArrowLeft'  && inP) { prevCh(); return; }
+  if (e.key === ' ' && inP) { e.preventDefault(); togglePlay(); return; }
+  if ((e.key === 'f' || e.key === 'F') && inP) { toggleFS(); return; }
+  if (!e.ctrlKey && !e.metaKey && e.key >= '1' && e.key <= '9') {
+    var idx = parseInt(e.key) - 1;
+    if (filtered[idx]) play(filtered[idx], idx);
+  }
+});
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+function setView(mode, btn) {
+  document.querySelectorAll('.vbtn').forEach(function (b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  var g = document.getElementById('chgrid');
+  if (mode === 'list') g.classList.add('list'); else g.classList.remove('list');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.sbtab').forEach(function (t) { t.classList.remove('active'); });
+  document.querySelectorAll('.sbpanel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById(tab === 'countries' ? 'tabC' : 'tabCh').classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+function openSb()  { document.getElementById('sidebar').classList.add('open');    document.getElementById('sbov').classList.add('show'); }
+function closeSb() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbov').classList.remove('show'); }
+
+function setMn(id) {
+  document.querySelectorAll('.mnbtn').forEach(function (b) { b.classList.remove('active'); });
+  var el = document.getElementById('mn-' + id); if (el) el.classList.add('active');
+}
+
+function mnGo(target) {
+  if      (target === 'home')    { closeSb(); setMn('home'); }
+  else if (target === 'pays')    { switchTab('countries'); openSb(); setMn('pays'); }
+  else if (target === 'chaines') { switchTab('channels');  openSb(); setMn('chaines'); }
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+var toastTmr;
+function showToast(title, sub) {
+  document.getElementById('toastt').innerHTML = title;
+  document.getElementById('toasts').textContent = sub || '';
+  var t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTmr);
+  toastTmr = setTimeout(function () { t.classList.remove('show'); }, 3200);
+}
+</script>
+</body>
+</html>
