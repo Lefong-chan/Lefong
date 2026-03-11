@@ -1,5 +1,6 @@
 /**
  * IPTV API Server - channels.js
+ * Voadio ho an'ny Vercel sy ny fandefasana video (m3u8)
  */
 
 const express = require('express');
@@ -8,9 +9,11 @@ const axios = require('axios');
 
 const app = express();
 
+// CORS mba hanaiky ny navigateur rehetra
 app.use(cors());
 app.use(express.json());
 
+// Lisitry ny firenena M3U (Default)
 const DEFAULT_M3U_SOURCES = [
   { id: 'fr',   name: 'France 🇫🇷',        url: 'https://iptv-org.github.io/iptv/countries/fr.m3u' },
   { id: 'us',   name: 'États-Unis 🇺🇸',    url: 'https://iptv-org.github.io/iptv/countries/us.m3u' },
@@ -28,9 +31,9 @@ const DEFAULT_M3U_SOURCES = [
   { id: 'sa',   name: 'Arabie Saoudite 🇸🇦', url: 'https://iptv-org.github.io/iptv/countries/sa.m3u' },
 ];
 
-const m3uCache = {};
-const CACHE_TTL_MS = 10 * 60 * 1000; 
-
+/**
+ * Mampiditra ny rakitra M3U ho lasa Array
+ */
 function parseM3U(text) {
   const lines = text.split(/\r?\n/);
   const channels = [];
@@ -43,7 +46,6 @@ function parseM3U(text) {
       const nm  = line.match(/,(.+)$/);       if (nm)  cur.name  = nm[1].trim();
       const lg  = line.match(/tvg-logo="([^"]*)"/i);  if (lg && lg[1].trim()) cur.logo  = lg[1].trim();
       const gr  = line.match(/group-title="([^"]*)"/i); if (gr && gr[1].trim()) cur.group = gr[1].trim();
-      const tid = line.match(/tvg-id="([^"]*)"/i);    cur.tvgId = tid ? tid[1] : '';
     } else if (line && !line.startsWith('#') && cur) {
       cur.url = line;
       if (cur.name && cur.url) channels.push({ ...cur, id: channels.length });
@@ -53,10 +55,13 @@ function parseM3U(text) {
   return channels;
 }
 
+/**
+ * Mitady ny lahatsoratra avy amin'ny URL
+ */
 async function fetchText(url, timeoutMs = 25000) {
   const resp = await axios.get(url, {
     timeout: timeoutMs,
-    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' },
+    headers: { 'User-Agent': 'Mozilla/5.0 (IPTV-Player/1.0)', 'Accept': '*/*' },
     responseType: 'text',
   });
   return resp.data;
@@ -64,6 +69,7 @@ async function fetchText(url, timeoutMs = 25000) {
 
 // --- ROUTES ---
 
+// 1. Fakana ny lisitry ny firenena
 app.get('/api/sources', (req, res) => {
   const list = DEFAULT_M3U_SOURCES.map(s => ({
     id: s.id, name: s.name, type: 'm3u', url: s.url
@@ -71,6 +77,7 @@ app.get('/api/sources', (req, res) => {
   res.json({ ok: true, sources: list });
 });
 
+// 2. Fakana ny chaîne rehetra ao amin'ny firenena iray
 app.get('/api/channels/:sourceId', async (req, res) => {
   const { sourceId } = req.params;
   const src = DEFAULT_M3U_SOURCES.find(s => s.id === sourceId);
@@ -85,34 +92,50 @@ app.get('/api/channels/:sourceId', async (req, res) => {
   }
 });
 
+// 3. Fikarakarana ny Xtream Codes
 app.post('/api/xtream', async (req, res) => {
   let { host, username, password } = req.body;
   if (!host || !username || !password) return res.status(400).json({ ok: false, error: 'Manque parametres' });
   
-  host = host.replace(/\/$/, '');
+  host = host.replace(/\/$/, ''); // Esory ny / any amin'ny farany
   const apiBase = `${host}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
   try {
+    // Hamarino raha mety ny login
     const infoResp = await axios.get(apiBase, { timeout: 15000 });
-    if (!infoResp.data || !infoResp.data.user_info) return res.status(401).json({ ok: false, error: 'Login failed' });
+    if (!infoResp.data || !infoResp.data.user_info) {
+        return res.status(401).json({ ok: false, error: 'Login failed: Hamarino ny Host sy Identifiants' });
+    }
 
-    const streamsResp = await axios.get(`${apiBase}&action=get_live_streams`, { timeout: 25000 });
+    // Alao ny sokajy (categories)
+    let categories = {};
+    const catResp = await axios.get(`${apiBase}&action=get_live_categories`, { timeout: 15000 });
+    if (Array.isArray(catResp.data)) {
+        catResp.data.forEach(c => categories[c.category_id] = c.category_name);
+    }
+
+    // Alao ny chaîne rehetra
+    const streamsResp = await axios.get(`${apiBase}&action=get_live_streams`, { timeout: 30000 });
     const rawStreams = Array.isArray(streamsResp.data) ? streamsResp.data : [];
 
-    const channels = rawStreams.slice(0, 500).map((s, idx) => ({
+    // Ovaina ho format mampiasa .m3u8 mba halefaka vakiana amin'ny navigateur
+    const channels = rawStreams.map((s, idx) => ({
       id: idx,
       name: s.name,
-      url: `${host}/live/${username}/${password}/${s.stream_id}.ts`,
+      // Natao .m3u8 eto mba hialana amin'ny MEDIA_ELEMENT_ERROR
+      url: `${host}/live/${username}/${password}/${s.stream_id}.m3u8`, 
       logo: s.stream_icon || '',
-      group: 'Live'
+      group: categories[s.category_id] || 'Live'
     }));
 
     res.json({ ok: true, channels });
   } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
+    res.status(502).json({ ok: false, error: "Tsy azo ny serveur Xtream: " + err.message });
   }
 });
 
+// Statut-ny server
 app.get('/api/health', (req, res) => res.json({ ok: true, status: "Serverless active" }));
 
+// TSY MAINTSY: module.exports ho an'ny Vercel
 module.exports = app;
