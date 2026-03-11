@@ -1,6 +1,5 @@
 /**
  * IPTV API Server - channels.js
- * Voadio ho an'ny Vercel (Serverless)
  */
 
 const express = require('express');
@@ -117,5 +116,4 @@ app.post('/api/xtream', async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true, status: "Serverless active" }));
 
-// TSY MAINTSY: module.exports ho an'ny Vercel
 module.exports = app;
