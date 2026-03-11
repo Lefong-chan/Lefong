@@ -685,7 +685,7 @@ async function fetchDefaultSources() {
 
 async function loadM3USource(source) {
   curSrcId = 'api_' + source.id;
-  showLoading('Maka chaînes ' + source.name + '...');
+  showLoading('Chargement des chaînes...');
   
   try {
     const response = await fetch(source.url);
