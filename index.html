@@ -38,7 +38,7 @@
     align-items: center;
     justify-content: center;
   }
-  
+
   .region-loading {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: .72rem;
@@ -47,6 +47,16 @@
     display: flex;
     align-items: center;
     gap: 7px;
+  }
+
+  /* ctrlrow auto-hide */
+  .ctrlrow {
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .ctrlrow.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
   }
 </style>
 </head>
@@ -189,11 +199,11 @@
             <i class="fa-solid fa-rotate-right"></i> Réessayer
           </button>
         </div>
-        <div class="playerov">
+        <div class="playerov" id="playerov">
           <div class="nowbadge"><i class="fa-solid fa-circle" style="font-size:.4rem;"></i> En direct</div>
           <div class="nowname" id="nowname">--</div>
           <div class="nowgrp"  id="nowgrp"></div>
-          <div class="ctrlrow">
+          <div class="ctrlrow" id="ctrlrow">
             <button class="cbtn" onclick="prevCh()"><i class="fa-solid fa-backward-step"></i></button>
             <button class="cbtn big" id="ppbtn" onclick="togglePlay()"><i class="fa-solid fa-pause"></i></button>
             <button class="cbtn" onclick="nextCh()"><i class="fa-solid fa-forward-step"></i></button>
@@ -335,14 +345,36 @@ let channels   = [];
 let filtered   = [];
 let curGroup   = null;
 let curChIdx   = -1;
-let curSrcIdx  = -1;   // index dans sources[] (sources perso)
-let curRegion  = null; // id de la région active
+let curSrcIdx  = -1;
+let curRegion  = null;
 let hls        = null;
 let curSrcType = 'url';
 let viewMode   = 'grid';
 let localM3U   = null;
 let cmdSelIdx  = -1;
-let regions    = [];   // liste chargée depuis /api/channels
+let regions    = [];
+
+/* ============================================================
+   CTRLROW AUTO-HIDE
+   ============================================================ */
+let ctrlHideTimer = null;
+
+function showCtrlRow() {
+  const cr = document.getElementById('ctrlrow');
+  if (!cr) return;
+  cr.classList.remove('hidden');
+  clearTimeout(ctrlHideTimer);
+  ctrlHideTimer = setTimeout(() => {
+    cr.classList.add('hidden');
+  }, 5000);
+}
+
+function hideCtrlRowNow() {
+  const cr = document.getElementById('ctrlrow');
+  if (!cr) return;
+  clearTimeout(ctrlHideTimer);
+  cr.classList.add('hidden');
+}
 
 /* ============================================================
    INIT
@@ -356,6 +388,29 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('msearch').addEventListener('input', e => globalSearch(e.target.value));
   document.getElementById('chfilter').addEventListener('input', e => renderChList(e.target.value));
   document.addEventListener('keydown', onKey);
+
+  const vid = document.getElementById('vid');
+  vid.addEventListener('click', () => {
+    const cr = document.getElementById('ctrlrow');
+    if (!cr) return;
+    if (cr.classList.contains('hidden')) {
+      showCtrlRow();
+    } else {
+      hideCtrlRowNow();
+    }
+  });
+
+  const playerov = document.getElementById('playerov');
+  playerov.addEventListener('click', e => {
+    const cr = document.getElementById('ctrlrow');
+    if (!cr) return;
+    if (cr.contains(e.target)) return;
+    if (cr.classList.contains('hidden')) {
+      showCtrlRow();
+    } else {
+      hideCtrlRowNow();
+    }
+  });
 
   const fd = document.getElementById('fileDrop');
   fd.addEventListener('dragover', e => { e.preventDefault(); fd.classList.add('dragover'); });
@@ -480,7 +535,7 @@ async function loadSource(idx) {
 }
 
 /* ============================================================
-   APPEL API PROXY (sources perso)
+   APPEL API PROXY (sources perso URL uniquement)
    ============================================================ */
 async function fetchM3UFromAPI(url, name, srcIdx) {
   showLoading(`Chargement de ${name}...`);
@@ -713,6 +768,8 @@ function playCh(idx) {
 
   renderChList(document.getElementById('chfilter').value);
   startStream(ch.url);
+
+  showCtrlRow();
 }
 
 function startStream(url) {
@@ -754,17 +811,20 @@ function togglePlay() {
   const btn = document.getElementById('ppbtn');
   if (vid.paused) { vid.play(); btn.innerHTML = '<i class="fa-solid fa-pause"></i>'; }
   else            { vid.pause(); btn.innerHTML = '<i class="fa-solid fa-play"></i>'; }
+  showCtrlRow();
 }
 
 function stopStream() {
   if (hls) { hls.destroy(); hls = null; }
   document.getElementById('vid').src = '';
+  clearTimeout(ctrlHideTimer);
   closePlayer();
 }
 
 function closePlayer() {
   if (hls) { hls.destroy(); hls = null; }
   document.getElementById('vid').src = '';
+  clearTimeout(ctrlHideTimer);
   if (channels.length) showGrid(); else showWelcome();
 }
 
@@ -774,6 +834,7 @@ function toggleFS() {
     (pw.requestFullscreen || pw.webkitRequestFullscreen || pw.mozRequestFullScreen).call(pw);
   else
     (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen).call(document);
+  showCtrlRow();
 }
 
 /* ============================================================
@@ -832,6 +893,7 @@ async function addSource() {
 
     } else if (curSrcType === 'file') {
       if (!localM3U) throw new Error('Sélectionnez un fichier M3U.');
+
       const chs = parseM3U(localM3U);
       if (!chs.length) throw new Error('Aucune chaîne trouvée dans ce fichier.');
 
