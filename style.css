@@ -465,7 +465,7 @@ button { cursor:pointer; }
 /* ============================================================
    MOBILE NAV
    ============================================================ */
-.mobilenav { display:none; position:fixed; bottom:0; left:0; right:0; background:rgba(8,8,14,.97); border-top:1px solid var(--bd); z-index:300; height:var(--mnh); backdrop-filter:blur(12px); }
+.mobilenav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--mnh);background:rgba(10,10,16,.98);border-top:1px solid var(--bd);backdrop-filter:blur(16px);z-index:400;padding:0 4px;}
 .mnav-inner { display:flex; align-items:stretch; height:100%; }
 .mnbtn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; background:none; border:none; color:var(--t3); font-size:.55rem; font-family:'Barlow Condensed', sans-serif; font-weight:700; letter-spacing:.5px; text-transform:uppercase; transition:color .15s; }
 .mnbtn i { font-size:.95rem; transition:color .15s; }
@@ -481,7 +481,7 @@ button { cursor:pointer; }
 @media(max-width:768px){
   .app { padding-bottom:var(--mnh); }
   .footer { display:none; }
-  .mobilenav { display:flex; }
+  .mobilenav{display:block;}
   .sidebar { position:fixed; left:0; top:var(--hh); bottom:var(--mnh); z-index:100; transform:translateX(-100%); width:min(var(--sw), 85vw); }
   .sidebar.open { transform:translateX(0); box-shadow:4px 0 24px rgba(0,0,0,.6); }
   .hbtn.desktop-only, .sbadge { display:none; }
