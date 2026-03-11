@@ -8,25 +8,32 @@ const axios = require('axios');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Origin', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
+}));
+
+app.options('*', cors());
 app.use(express.json());
 
-// Namboarina ny emoji rehetra eto
 const DEFAULT_M3U_SOURCES = [
-  { id: 'fr',   name: 'France 🇫🇷',        url: 'https://iptv-org.github.io/iptv/countries/fr.m3u' },
-  { id: 'us',   name: 'États-Unis 🇺🇸',    url: 'https://iptv-org.github.io/iptv/countries/us.m3u' },
-  { id: 'de',   name: 'Allemagne 🇩🇪',     url: 'https://iptv-org.github.io/iptv/countries/de.m3u' },
-  { id: 'gb',   name: 'Royaume-Uni 🇬🇧',   url: 'https://iptv-org.github.io/iptv/countries/gb.m3u' },
-  { id: 'ma',   name: 'Maroc 🇲🇦',         url: 'https://iptv-org.github.io/iptv/countries/ma.m3u' },
-  { id: 'dz',   name: 'Algérie 🇩🇿',       url: 'https://iptv-org.github.io/iptv/countries/dz.m3u' },
-  { id: 'tn',   name: 'Tunisie 🇹🇳',       url: 'https://iptv-org.github.io/iptv/countries/tn.m3u' },
-  { id: 'sn',   name: 'Sénégal 🇸🇳',       url: 'https://iptv-org.github.io/iptv/countries/sn.m3u' },
-  { id: 'mg',   name: 'Madagascar 🇲🇬',    url: 'https://iptv-org.github.io/iptv/countries/mg.m3u' },
-  { id: 'es',   name: 'Espagne 🇪🇸',       url: 'https://iptv-org.github.io/iptv/countries/es.m3u' },
-  { id: 'it',   name: 'Italie 🇮🇹',        url: 'https://iptv-org.github.io/iptv/countries/it.m3u' },
-  { id: 'br',   name: 'Brésil 🇧🇷',        url: 'https://iptv-org.github.io/iptv/countries/br.m3u' },
-  { id: 'tr',   name: 'Turquie 🇹🇷',       url: 'https://iptv-org.github.io/iptv/countries/tr.m3u' },
-  { id: 'sa',   name: 'Arabie Saoudite 🇸🇦', url: 'https://iptv-org.github.io/iptv/countries/sa.m3u' },
+  { id: 'fr',   name: 'France',          url: 'https://iptv-org.github.io/iptv/countries/fr.m3u' },
+  { id: 'us',   name: 'Etats-Unis',      url: 'https://iptv-org.github.io/iptv/countries/us.m3u' },
+  { id: 'de',   name: 'Allemagne',       url: 'https://iptv-org.github.io/iptv/countries/de.m3u' },
+  { id: 'gb',   name: 'Royaume-Uni',     url: 'https://iptv-org.github.io/iptv/countries/gb.m3u' },
+  { id: 'ma',   name: 'Maroc',           url: 'https://iptv-org.github.io/iptv/countries/ma.m3u' },
+  { id: 'dz',   name: 'Algerie',         url: 'https://iptv-org.github.io/iptv/countries/dz.m3u' },
+  { id: 'tn',   name: 'Tunisie',         url: 'https://iptv-org.github.io/iptv/countries/tn.m3u' },
+  { id: 'sn',   name: 'Senegal',         url: 'https://iptv-org.github.io/iptv/countries/sn.m3u' },
+  { id: 'mg',   name: 'Madagascar',      url: 'https://iptv-org.github.io/iptv/countries/mg.m3u' },
+  { id: 'es',   name: 'Espagne',         url: 'https://iptv-org.github.io/iptv/countries/es.m3u' },
+  { id: 'it',   name: 'Italie',          url: 'https://iptv-org.github.io/iptv/countries/it.m3u' },
+  { id: 'br',   name: 'Bresil',          url: 'https://iptv-org.github.io/iptv/countries/br.m3u' },
+  { id: 'tr',   name: 'Turquie',         url: 'https://iptv-org.github.io/iptv/countries/tr.m3u' },
+  { id: 'sa',   name: 'Arabie Saoudite', url: 'https://iptv-org.github.io/iptv/countries/sa.m3u' },
 ];
 
 const m3uCache = {};
@@ -67,8 +74,9 @@ async function fetchText(url, timeoutMs = 25000) {
 
 app.get('/api/sources', (req, res) => {
   const list = DEFAULT_M3U_SOURCES.map(s => ({
-    id: s.id, name: s.name, type: 'm3u', url: s.url
+    id: s.id, name: s.name, type: 'm3u', url: s.url, chCount: 0
   }));
+  res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true, sources: list });
 });
 
@@ -80,6 +88,7 @@ app.get('/api/channels/:sourceId', async (req, res) => {
   try {
     const text = await fetchText(src.url);
     const channels = parseM3U(text);
+    res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, source: src.name, channels });
   } catch (err) {
     res.status(502).json({ ok: false, error: err.message });
