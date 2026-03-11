@@ -310,7 +310,15 @@ button { cursor:pointer; }
 .spin { width:44px; height:44px; border:3px solid rgba(255,255,255,.08); border-top-color:var(--accent); border-radius:50%; animation:spin .75s linear infinite; }
 @keyframes spin { to{transform:rotate(360deg)} }
 
-.playerr { position:absolute; inset:0; background:rgba(8,8,14,.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:10; }
+.playerov {
+  position:absolute; inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.2) 50%,transparent 100%);
+  display:flex; flex-direction:column; justify-content:flex-end;
+  padding:16px 20px 18px;
+  transition:opacity .35s ease, visibility .35s ease;
+  pointer-events:auto;
+  z-index:8;
+}
 .playerr.show { display:flex; }
 .errico   { width:64px; height:64px; background:rgba(229,9,20,.12); border:1px solid rgba(229,9,20,.25); border-radius:50%; display:flex; align-items:center; justify-content:center; }
 .errico i { font-size:1.6rem; color:var(--accent); }
@@ -319,12 +327,6 @@ button { cursor:pointer; }
 .retrybtn { background:var(--accent); border:none; border-radius:7px; color:#fff; font-family:'Barlow Condensed', sans-serif; font-weight:800; font-size:.82rem; letter-spacing:1px; padding:9px 22px; display:flex; align-items:center; gap:7px; transition:opacity .2s; text-transform:uppercase; }
 .retrybtn:hover { opacity:.85; }
 
-.playerov { position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.2) 50%,transparent 100%); display:flex; flex-direction:column; justify-content:flex-end; padding:16px 20px 18px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:8; }
-.pwrap:hover .playerov { opacity:1; pointer-events:auto; }
-/* Sur Smart TV : toujours visible */
-@media(min-width:960px) and (hover:none) {
-  .pwrap .playerov { opacity:1; pointer-events:auto; }
-}
 .nowbadge { display:inline-flex; align-items:center; gap:5px; background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); border-radius:20px; padding:3px 9px; font-family:'Barlow Condensed', sans-serif; font-size:.63rem; font-weight:700; color:var(--green); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; width:fit-content; }
 .nowname { font-family:'Bebas Neue', sans-serif; font-size:clamp(1.2rem,3vw,1.8rem); letter-spacing:2px; line-height:1.1; margin-bottom:5px; text-shadow:0 2px 10px rgba(0,0,0,.8); }
 .nowgrp  { font-size:.72rem; color:var(--t2); margin-bottom:14px; font-family:'Barlow Condensed', sans-serif; letter-spacing:.5px; }
