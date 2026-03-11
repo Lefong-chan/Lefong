@@ -334,13 +334,11 @@ var pendingFileData = null;
    INITIALISATION
    ============================================================ */
 window.addEventListener('DOMContentLoaded', function () {
+  
   loadLocalSources();
-  // Asehoy ny welcome screen satria tsy misy backend hiankinana intsony
-  document.getElementById('welcomeScr').style.display = 'flex';
-  setStatus('live', 'Mode Offline / Local');
+  fetchDefaultSources();
 });
 
-/* Charger ny sources avy amin'ny localStorage fotsiny */
 function loadLocalSources() {
   try { 
     sources = JSON.parse(localStorage.getItem('iptv_custom_sources') || '[]'); 
@@ -652,14 +650,13 @@ async function fetchDefaultSources() {
   const loadScr = document.getElementById('loadscr');
   const welcomeScr = document.getElementById('welcomeScr');
   
-  setStatus('load', 'Mifandray amin\'ny API...');
+  welcomeScr.style.display = 'none';
+  
+  showLoading('Mifandray amin\'ny API...');
   
   try {
     const response = await fetch(API_SOURCES_URL);
-    
-    if (!response.ok) {
-      throw new Error(`Erreur serveur: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
 
     const data = await response.json();
 
@@ -678,16 +675,13 @@ async function fetchDefaultSources() {
     }
 
   } catch (err) {
-    console.error("Fahadisoana teo am-pangalana ny sources:", err);
-    
+    console.error("Error API:", err);
     setStatus('err', 'API tsy azo');
-    showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur API', 'Tsy afaka naka ny lisitry ny firenena.');
-
-    if (loadScr) loadScr.style.display = 'none';
-    if (welcomeScr) welcomeScr.style.display = 'flex';
+    
+    loadScr.style.display = 'none';
+    welcomeScr.style.display = 'flex';
   }
 }
-
 
 async function loadM3USource(source) {
   curSrcId = 'api_' + source.id;
