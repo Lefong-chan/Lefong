@@ -582,27 +582,42 @@ function renderChList(chs) {
    LECTEUR (FRONTEND LOGIC)
    ============================================================ */
 function play(ch, idx) {
-  curCh = ch; curIdx = idx;
+  curCh = ch;
+  curIdx = idx;
   document.getElementById('nowname').textContent = ch.name;
   document.getElementById('playerview').classList.add('show');
   document.getElementById('gridview').classList.remove('show');
   
   var v = document.getElementById('vid');
+  
+  showSpin();
+  
   if (Hls.isSupported() && ch.url.includes('m3u8')) {
     if (hlsObj) hlsObj.destroy();
     hlsObj = new Hls();
     hlsObj.loadSource(ch.url);
     hlsObj.attachMedia(v);
-    hlsObj.on(Hls.Events.MANIFEST_PARSED, function() { v.play(); });
+    hlsObj.on(Hls.Events.MANIFEST_PARSED, function() {
+      v.play();
+      hideSpin();
+    });
+    
+    hlsObj.on(Hls.Events.ERROR, function() { hideSpin(); });
+    
   } else {
     v.src = ch.url;
     v.play();
+    
+    v.onplaying = function() { hideSpin(); };
+    v.onerror = function() { hideSpin(); };
   }
 }
 
 function closePlayer() {
   var v = document.getElementById('vid');
   v.pause();
+  v.src = "";
+  hideSpin();
   document.getElementById('playerview').classList.remove('show');
   document.getElementById('gridview').classList.add('show');
 }
@@ -610,6 +625,16 @@ function closePlayer() {
 /* ============================================================
    NAVIGATION & UI HELPERS
    ============================================================ */
+function showSpin() { 
+  const spin = document.getElementById('spinov');
+  if(spin) spin.classList.add('show'); 
+}
+
+function hideSpin() { 
+  const spin = document.getElementById('spinov');
+  if(spin) spin.classList.remove('show'); 
+}
+   
 function switchTab(tab) {
   document.querySelectorAll('.sbtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.sbpanel').forEach(p => p.classList.remove('active'));
@@ -686,7 +711,6 @@ async function fetchDefaultSources() {
 async function loadM3USource(source) {
   curSrcId = 'api_' + source.id;
   
-  // Asehoy ny loading
   showLoading('Chargement des chaînes...');
   
   try {
@@ -696,10 +720,8 @@ async function loadM3USource(source) {
     const m3uText = await response.text();
     const chs = parseM3ULocal(m3uText);
     
-    // Antsoy ny applyChannels (izay efa misy .style.display = 'none' ao anatiny)
     applyChannels(chs, source.name);
     
-    // Ataovy azo antoka fa mihidy ny loading eto
     document.getElementById('loadscr').style.display = 'none';
 
     document.querySelectorAll('.country-btn').forEach(btn => {
