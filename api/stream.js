@@ -38,38 +38,20 @@ module.exports = async function handler(req, res) {
 
   try {
 
-    // ========================
-    // REQUEST STREAM
-    // ========================
     const headers = {
       "User-Agent": "Mozilla/5.0",
       Accept: "*/*",
-      Connection: "keep-alive",
+      Connection: "keep-alive"
     };
 
     if (req.headers.range) {
       headers["Range"] = req.headers.range;
     }
 
-    const response = await axios({
-      method: "GET",
-      url: targetUrl,
-      responseType: "stream",
-      timeout: 30000,
-      headers,
-      maxRedirects: 5,
-      validateStatus: () => true
-    });
-
-    const contentType = response.headers["content-type"] || "";
-
     // ========================
     // CAS PLAYLIST M3U8
     // ========================
-    if (
-      contentType.includes("mpegurl") ||
-      targetUrl.includes(".m3u8")
-    ) {
+    if (targetUrl.includes(".m3u8")) {
 
       const playlistResponse = await axios.get(targetUrl, {
         timeout: 30000,
@@ -97,7 +79,21 @@ module.exports = async function handler(req, res) {
             absoluteUrl = baseUrl + line;
           }
 
-          return `${BASE}/api/stream?url=${encodeURIComponent(absoluteUrl)}`;
+          // 🔥 TS segments DIRECT (pas proxy)
+          if (
+            absoluteUrl.includes(".ts") ||
+            absoluteUrl.includes(".m4s") ||
+            absoluteUrl.includes(".aac")
+          ) {
+            return absoluteUrl;
+          }
+
+          // playlist secondaire -> proxy
+          if (absoluteUrl.includes(".m3u8")) {
+            return `${BASE}/api/stream?url=${encodeURIComponent(absoluteUrl)}`;
+          }
+
+          return absoluteUrl;
         })
         .join("\n");
 
@@ -107,57 +103,45 @@ module.exports = async function handler(req, res) {
       );
 
       res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Access-Control-Allow-Origin", "*");
 
       return res.status(200).send(body);
     }
 
     // ========================
-    // CAS SEGMENT VIDEO (.ts .m4s .aac)
+    // CAS STREAM DIRECT
     // ========================
+    const response = await axios({
+      method: "GET",
+      url: targetUrl,
+      responseType: "stream",
+      timeout: 30000,
+      headers,
+      maxRedirects: 5,
+      validateStatus: () => true
+    });
 
     res.status(response.status || 200);
 
     if (response.headers["content-type"]) {
-      res.setHeader(
-        "Content-Type",
-        response.headers["content-type"]
-      );
+      res.setHeader("Content-Type", response.headers["content-type"]);
     } else {
-
-      if (targetUrl.includes(".ts")) {
-        res.setHeader("Content-Type", "video/mp2t");
-      } else if (targetUrl.includes(".m4s")) {
-        res.setHeader("Content-Type", "video/iso.segment");
-      } else {
-        res.setHeader("Content-Type", "application/octet-stream");
-      }
-
+      res.setHeader("Content-Type", "video/mp2t");
     }
 
     if (response.headers["content-length"]) {
-      res.setHeader(
-        "Content-Length",
-        response.headers["content-length"]
-      );
+      res.setHeader("Content-Length", response.headers["content-length"]);
     }
 
     if (response.headers["accept-ranges"]) {
-      res.setHeader(
-        "Accept-Ranges",
-        response.headers["accept-ranges"]
-      );
+      res.setHeader("Accept-Ranges", response.headers["accept-ranges"]);
     }
 
     res.setHeader("Cache-Control", "no-cache");
 
-    // STREAM DIRECT
     response.data.pipe(res);
 
     response.data.on("error", () => {
-      if (!res.headersSent) {
-        res.status(502).end();
-      }
+      if (!res.headersSent) res.status(502).end();
     });
 
     req.on("close", () => {
