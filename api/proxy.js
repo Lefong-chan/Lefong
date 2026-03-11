@@ -1,18 +1,20 @@
-// api/proxy.js
+// api/proxy.js — M3U Proxy Backend
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
   
-  const url = req.query.url || (req.body && req.body.url);
+  const url = req.query.url;
   
   if (!url) {
-    return res.status(400).json({ error: 'URL M3U tsy nomena.' });
+    return res.status(400).json({ error: 'URL M3U manquante.' });
+  }
+  
+  if (!/^https?:\/\//i.test(url)) {
+    return res.status(400).json({ error: 'URL invalide. Elle doit commencer par http:// ou https://' });
   }
   
   try {
@@ -21,19 +23,19 @@ export default async function handler(req, res) {
         'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Player/1.0)',
         'Accept': '*/*',
       },
-      signal: AbortSignal.timeout(15000), // 15s timeout
+      signal: AbortSignal.timeout(20000),
     });
     
     if (!response.ok) {
       return res.status(502).json({
-        error: `Tsy azo nalaina ny M3U: HTTP ${response.status}`,
+        error: `Impossible de récupérer le fichier M3U : HTTP ${response.status}`,
       });
     }
     
     const text = await response.text();
     
     if (!text.trim().startsWith('#EXTM3U')) {
-      return res.status(422).json({ error: 'Tsy fichier M3U marina izy.' });
+      return res.status(422).json({ error: 'Le fichier récupéré n\'est pas un M3U valide.' });
     }
     
     const channels = parseM3U(text);
@@ -45,29 +47,24 @@ export default async function handler(req, res) {
     
   } catch (err) {
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      return res.status(504).json({ error: 'Timeout: M3U URL tsy namaly.' });
+      return res.status(504).json({ error: 'Délai dépassé : l\'URL M3U n\'a pas répondu (20s).' });
     }
-    return res.status(500).json({ error: 'Fahadisoana: ' + err.message });
+    return res.status(500).json({ error: 'Erreur serveur : ' + err.message });
   }
 }
 
-// ── Parser M3U ──────────────────────────────────────────────
+// ── Parser M3U ───────────────────────────────────────────────
 function parseM3U(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const channels = [];
   let current = null;
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
+  for (const line of lines) {
     if (line.startsWith('#EXTINF:')) {
       current = parseExtinf(line);
-      
     } else if (line.startsWith('#')) {
       continue;
-      
-    } else if (line.startsWith('http') || line.startsWith('rtmp') || line.startsWith('rtsp')) {
-      // URL ny stream
+    } else if (/^https?:\/\//i.test(line)) {
       if (current) {
         current.url = line;
         channels.push(current);
@@ -80,13 +77,7 @@ function parseM3U(text) {
 }
 
 function parseExtinf(line) {
-  const ch = {
-    name: '',
-    group: '',
-    logo: '',
-    id: '',
-    url: '',
-  };
+  const ch = { name: '', group: '', logo: '', id: '', url: '' };
   
   const commaIdx = line.lastIndexOf(',');
   if (commaIdx !== -1) {
