@@ -1,150 +1,50 @@
-/**
- * IPTV API Server - channels.js
- */
+import axios from 'axios';
 
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
 
-const app = express();
+  // Maka ny sourceId avy amin'ny URL (ohatra: /api/channels?id=mg)
+  const sourceId = req.query.id || req.query.sourceId;
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Accept', 'Origin', 'X-Requested-With'],
-  preflightContinue: false,
-  optionsSuccessStatus: 200
-}));
+  const sources = {
+    'fr': 'https://iptv-org.github.io/iptv/countries/fr.m3u',
+    'mg': 'https://iptv-org.github.io/iptv/countries/mg.m3u',
+    'us': 'https://iptv-org.github.io/iptv/countries/us.m3u',
+    'sn': 'https://iptv-org.github.io/iptv/countries/sn.m3u'
+  };
 
-app.options('*', cors());
-app.use(express.json());
-
-const DEFAULT_M3U_SOURCES = [
-  { id: 'fr',   name: 'France',          url: 'https://iptv-org.github.io/iptv/countries/fr.m3u' },
-  { id: 'us',   name: 'Etats-Unis',      url: 'https://iptv-org.github.io/iptv/countries/us.m3u' },
-  { id: 'de',   name: 'Allemagne',       url: 'https://iptv-org.github.io/iptv/countries/de.m3u' },
-  { id: 'gb',   name: 'Royaume-Uni',     url: 'https://iptv-org.github.io/iptv/countries/gb.m3u' },
-  { id: 'ma',   name: 'Maroc',           url: 'https://iptv-org.github.io/iptv/countries/ma.m3u' },
-  { id: 'dz',   name: 'Algerie',         url: 'https://iptv-org.github.io/iptv/countries/dz.m3u' },
-  { id: 'tn',   name: 'Tunisie',         url: 'https://iptv-org.github.io/iptv/countries/tn.m3u' },
-  { id: 'sn',   name: 'Senegal',         url: 'https://iptv-org.github.io/iptv/countries/sn.m3u' },
-  { id: 'mg',   name: 'Madagascar',      url: 'https://iptv-org.github.io/iptv/countries/mg.m3u' },
-  { id: 'es',   name: 'Espagne',         url: 'https://iptv-org.github.io/iptv/countries/es.m3u' },
-  { id: 'it',   name: 'Italie',          url: 'https://iptv-org.github.io/iptv/countries/it.m3u' },
-  { id: 'br',   name: 'Bresil',          url: 'https://iptv-org.github.io/iptv/countries/br.m3u' },
-  { id: 'tr',   name: 'Turquie',         url: 'https://iptv-org.github.io/iptv/countries/tr.m3u' },
-  { id: 'sa',   name: 'Arabie Saoudite', url: 'https://iptv-org.github.io/iptv/countries/sa.m3u' },
-];
-
-const m3uCache = {};
-const CACHE_TTL_MS = 10 * 60 * 1000; 
-
-function parseM3U(text) {
-  const lines = text.split(/\r?\n/);
-  const channels = [];
-  let cur = null;
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line.startsWith('#EXTINF')) {
-      cur = { name: '', url: '', logo: '', group: 'Divers' };
-      const nm  = line.match(/,(.+)$/);       if (nm)  cur.name  = nm[1].trim();
-      const lg  = line.match(/tvg-logo="([^"]*)"/i);  if (lg && lg[1].trim()) cur.logo  = lg[1].trim();
-      const gr  = line.match(/group-title="([^"]*)"/i); if (gr && gr[1].trim()) cur.group = gr[1].trim();
-      const tid = line.match(/tvg-id="([^"]*)"/i);    cur.tvgId = tid ? tid[1] : '';
-    } else if (line && !line.startsWith('#') && cur) {
-      cur.url = line;
-      if (cur.name && cur.url) channels.push({ ...cur, id: channels.length });
-      cur = null;
-    }
-  }
-  return channels;
-}
-
-async function fetchText(url, timeoutMs = 25000) {
-  const resp = await axios.get(url, {
-    timeout: timeoutMs,
-    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' },
-    responseType: 'text',
-  });
-  return resp.data;
-}
-
-// --- ROUTES ---
-
-app.get('/api/sources', (req, res) => {
-  const list = DEFAULT_M3U_SOURCES.map(s => ({
-    id: s.id, name: s.name, type: 'm3u', url: s.url, chCount: 0
-  }));
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, sources: list });
-});
-
-app.get('/api/channels/:sourceId', async (req, res) => {
-  const { sourceId } = req.params;
-  const src = DEFAULT_M3U_SOURCES.find(s => s.id === sourceId);
-  if (!src) return res.status(404).json({ ok: false, error: 'Source inconnue' });
+  const url = sources[sourceId];
+  if (!url) return res.status(404).json({ ok: false, error: 'Source tsy hita' });
 
   try {
-    const text = await fetchText(src.url);
-    const channels = parseM3U(text);
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({ ok: true, source: src.name, channels });
-  } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
-  }
-});
+    const response = await axios.get(url);
+    const text = response.data;
+    
+    // Parseur m3u tsotra
+    const lines = text.split(/\r?\n/);
+    const channels = [];
+    let cur = null;
 
-app.post('/api/xtream', async (req, res) => {
-  let { host, username, password } = req.body;
-  if (!host || !username || !password) return res.status(400).json({ ok: false, error: 'Manque parametres' });
-  
-  host = host.replace(/\/$/, '');
-  const apiBase = `${host}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-
-  try {
-    const infoResp = await axios.get(apiBase, { timeout: 15000 });
-    if (!infoResp.data || !infoResp.data.user_info) return res.status(401).json({ ok: false, error: 'Login failed' });
-
-    const streamsResp = await axios.get(`${apiBase}&action=get_live_streams`, { timeout: 25000 });
-    const rawStreams = Array.isArray(streamsResp.data) ? streamsResp.data : [];
-
-    let catMap = {};
-    try {
-      const catResp = await axios.get(`${apiBase}&action=get_live_categories`, { timeout: 10000 });
-      if (Array.isArray(catResp.data)) {
-        catResp.data.forEach(cat => { catMap[cat.category_id] = cat.category_name; });
+    for (const line of lines) {
+      if (line.startsWith('#EXTINF')) {
+        const nameMatch = line.match(/,(.+)$/);
+        const logoMatch = line.match(/tvg-logo="([^"]*)"/i);
+        const groupMatch = line.match(/group-title="([^"]*)"/i);
+        cur = {
+          name: nameMatch ? nameMatch[1].trim() : 'Unknown',
+          logo: logoMatch ? logoMatch[1] : '',
+          group: groupMatch ? groupMatch[1] : 'Divers'
+        };
+      } else if (line && !line.startsWith('#') && cur) {
+        cur.url = line.trim();
+        channels.push({ ...cur, id: channels.length });
+        cur = null;
       }
-    } catch(e) {}
+    }
 
-    const channels = rawStreams.slice(0, 2000).map((s, idx) => {
-      const sid = s.stream_id;
-
-      const urlM3u8 = `${host}/live/${username}/${password}/${sid}.m3u8`;
-      const urlTs   = `${host}/live/${username}/${password}/${sid}.ts`;
-      const group = catMap[s.category_id] || 'Live';
-      return {
-        id: idx,
-        name: s.name || ('Ch. ' + (idx+1)),
-        url: urlM3u8,
-        urlFallback: urlTs,
-        logo: s.stream_icon || '',
-        group: group
-      };
-    });
-
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({ ok: true, channels, serverInfo: {
-      expirationDate: infoResp.data.user_info.exp_date
-        ? new Date(parseInt(infoResp.data.user_info.exp_date)*1000).toLocaleDateString('fr-FR')
-        : null,
-      maxConnections: infoResp.data.user_info.max_connections
-    }});
-  } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
+    res.status(200).json({ ok: true, channels });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
   }
-});
-
-app.get('/api/health', (req, res) => res.json({ ok: true, status: "Serverless active" }));
-
-module.exports = app;
+}
