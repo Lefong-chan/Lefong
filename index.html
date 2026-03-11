@@ -615,12 +615,15 @@ function play(ch, idx) {
 
 function closePlayer() {
   var v = document.getElementById('vid');
-  v.pause();
-  v.src = "";
+  if (v) {
+    v.pause();
+    v.src = "";
+  }
   hideSpin();
   document.getElementById('playerview').classList.remove('show');
   document.getElementById('gridview').classList.add('show');
 }
+
 
 /* ============================================================
    NAVIGATION & UI HELPERS
@@ -656,6 +659,26 @@ function setStatus(cl, txt) {
 }
 
 function xss(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function mnGo(target, btn) {
+  document.querySelectorAll('.mnbtn').forEach(b => b.classList.remove('active'));
+  
+  if (btn) btn.classList.add('active');
+
+  if (target === 'home') {
+    closeSb();
+    closePlayer();
+    document.getElementById('gridview').classList.add('show');
+  } 
+  else if (target === 'pays') { 
+    switchTab('countries'); 
+    openSb(); 
+  } 
+  else if (target === 'chaines') { 
+    switchTab('channels'); 
+    openSb(); 
+  }
+}
 
 function showToast(t, s) {
   var el = document.getElementById('toast');
