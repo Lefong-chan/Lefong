@@ -445,7 +445,7 @@ function loadDefaultSource(src){
     b.classList.toggle('active',b.getAttribute('data-id')===curSrcId);
   });
   showLoading('Chargement des chaînes...');
-  safeFetch(API_BASE+'/api/channels/'+src.id)
+  safeFetch(API_BASE+'/api/channels?id='+src.id)
     .then(function(d){
       if(!d.ok) throw new Error(d.error||'Erreur API');
       applyChannels(d.channels,d.source,src.name);
