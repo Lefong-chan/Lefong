@@ -3,9 +3,6 @@ const axios = require("axios");
 
 module.exports = async function handler(req, res) {
 
-  // ========================
-  // CORS
-  // ========================
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
@@ -15,7 +12,7 @@ module.exports = async function handler(req, res) {
   const { url } = req.query;
 
   if (!url) {
-    return res.status(400).json({ error: "Paramètre url manquant" });
+    return res.status(400).json({ error: "url manquant" });
   }
 
   let targetUrl;
@@ -48,17 +45,17 @@ module.exports = async function handler(req, res) {
       headers["Range"] = req.headers.range;
     }
 
-    // ========================
-    // CAS PLAYLIST M3U8
-    // ========================
+    // =========================
+    // PLAYLIST M3U8
+    // =========================
     if (targetUrl.includes(".m3u8")) {
 
-      const playlistResponse = await axios.get(targetUrl, {
-        timeout: 30000,
+      const playlist = await axios.get(targetUrl, {
+        timeout: 20000,
         headers
       });
 
-      let body = playlistResponse.data;
+      let body = playlist.data;
 
       const baseUrl =
         targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
@@ -71,45 +68,29 @@ module.exports = async function handler(req, res) {
 
           if (!line || line.startsWith("#")) return line;
 
-          let absoluteUrl;
+          let absolute;
 
           if (line.startsWith("http")) {
-            absoluteUrl = line;
+            absolute = line;
           } else {
-            absoluteUrl = baseUrl + line;
+            absolute = baseUrl + line;
           }
 
-          // 🔥 TS segments DIRECT (pas proxy)
-          if (
-            absoluteUrl.includes(".ts") ||
-            absoluteUrl.includes(".m4s") ||
-            absoluteUrl.includes(".aac")
-          ) {
-            return absoluteUrl;
-          }
+          // proxy segments + playlists
+          return `${BASE}/api/stream?url=${encodeURIComponent(absolute)}`;
 
-          // playlist secondaire -> proxy
-          if (absoluteUrl.includes(".m3u8")) {
-            return `${BASE}/api/stream?url=${encodeURIComponent(absoluteUrl)}`;
-          }
-
-          return absoluteUrl;
         })
         .join("\n");
 
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.apple.mpegurl"
-      );
-
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
       res.setHeader("Cache-Control", "no-cache");
 
       return res.status(200).send(body);
     }
 
-    // ========================
-    // CAS STREAM DIRECT
-    // ========================
+    // =========================
+    // SEGMENT STREAM (.ts)
+    // =========================
     const response = await axios({
       method: "GET",
       url: targetUrl,
@@ -150,13 +131,14 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
 
-    console.error("Proxy stream error:", err.message);
+    console.error("stream proxy error:", err.message);
 
     if (!res.headersSent) {
       res.status(502).json({
-        error: "Impossible de récupérer le stream"
+        error: "stream impossible"
       });
     }
 
   }
+
 };
