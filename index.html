@@ -2,17 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="format-detection" content="telephone=no">
 <title>IPTV Player</title>
 <link rel="stylesheet" href="style.css">
 
-<!-- Font Awesome -->
+<!-- Font Awesome — CDN principal + CDN de secours -->
 <link id="fa-cdn" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link id="fa-cdn2" rel="stylesheet" href="https://use.fontawesome.com/releases/v6.5.1/css/all.css" disabled>
 <script>
 (function(){
+  // Si le CDN principal échoue, activer le CDN de secours
   var t = setTimeout(function(){
     var el = document.getElementById('fa-cdn2');
     if(el) el.disabled = false;
@@ -21,21 +20,18 @@
 })();
 </script>
 
-<!-- hls.js -->
+<!-- hls.js — CDN avec 2 fallbacks -->
 <script>
 (function(){
-  var loaded=false;
-  function loadScript(src,fallback){
-    if(loaded) return;
-    var s=document.createElement('script');
-    s.src=src;
-    s.onload=function(){loaded=true;};
-    if(fallback) s.onerror=function(){if(!loaded) loadScript(fallback);};
+  function loadScript(src, fallback){
+    var s = document.createElement('script');
+    s.src = src;
+    if(fallback) s.onerror = function(){ loadScript(fallback); };
     document.head.appendChild(s);
   }
   loadScript(
-    'https://cdn.jsdelivr.net/npm/hls.js@1.4.14/dist/hls.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.14/hls.min.js'
+    'https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js'
   );
 })();
 </script>
@@ -223,8 +219,8 @@
 <footer class="footer">
   <div class="footbrand">IPTV+</div>
   <div class="footlinks">
-    <a class="footlink" href="tel:+261331926914"><i class="fa-solid fa-phone"></i> +261 33 19 269 14</a>
-    <a class="footlink" href="https://facebook.com" target="_blank" rel="noopener"><i class="fa-brands fa-facebook"></i> Le Fong &#128337;</a>
+    <a class="footlink" href="tel:+261331926914"><i class="fa-solid fa-phone"></i> +261 33 192 6914</a>
+    <a class="footlink" href="https://facebook.com" target="_blank" rel="noopener"><i class="fa-brands fa-facebook"></i> Le Fong</a>
   </div>
   <div class="footcopy">&copy; 2026 IPTV+</div>
 </footer>
@@ -329,7 +325,7 @@
   </div>
 </div>
 
-<!-- MODAL CONFIRMATION -->
+<!-- MODAL CONFIRMATION (remplace confirm() non supporté sur Smart TV) -->
 <div class="modalbg" id="confirmModal" style="display:none;z-index:10000;">
   <div class="modal" style="max-width:340px;">
     <div class="mhdr">
@@ -360,10 +356,10 @@
 /* ============================================================
    CONFIG
    ============================================================ */
-var API_BASE = 'https://lefong.vercel.app';
+var API_BASE = 'https://long-sun-588f.ericfongchan1.workers.dev';
 
 /* ============================================================
-   STOCKAGE — compatible Smart TV
+   STOCKAGE — compatible Smart TV (localStorage peut être absent)
    ============================================================ */
 var _mem = {};
 function storeGet(k) {
@@ -380,7 +376,7 @@ function storeSet(k,v) {
    ============================================================ */
 var channels=[], filtered=[], groups={};
 var curCh=null, curIdx=-1, curGroup=null;
-var hlsObj=null, curUrl='', curFallbackUrl=null, retries=0, MAX_RETRY=3;
+var hlsObj=null, curUrl='', retries=0, MAX_RETRY=3;
 var cmdRes=[], cmdSel=0;
 var sources=[], curSrcId=null;
 var modalSrcType='url', pendingFileData=null;
@@ -401,7 +397,7 @@ function loadLocalSources(){
   renderSrcList();
 }
 function saveLocalSources(){
-  var d=sources.map(function(s){ return {id:s.id,name:s.name,type:s.type,url:s.url,host:s.host,user:s.user,pass:s.pass,chCount:s.chCount||0}; });
+  var d=sources.map(function(s){ return {id:s.id,name:s.name,type:s.type,url:s.url,host:s.host,chCount:s.chCount||0}; });
   try { storeSet('iptv_custom_sources',JSON.stringify(d)); } catch(e){}
 }
 
@@ -530,7 +526,7 @@ function delSource(e,id){
 }
 
 /* ============================================================
-   CONFIRM MODAL
+   CONFIRM MODAL (remplace window.confirm)
    ============================================================ */
 function showConfirm(msg,onYes){
   var modal=document.getElementById('confirmModal');
@@ -616,7 +612,6 @@ function addSource(){
     safeFetch(API_BASE+'/api/xtream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:host,username:user,password:pass})})
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Erreur Xtream');
-        // Afficher les infos serveur si disponibles
         if(d.serverInfo){
           var si=d.serverInfo;
           document.getElementById('xtServerInfo').style.display='block';
@@ -625,7 +620,7 @@ function addSource(){
             (si.expirationDate?'<div class="row"><span>Expiration</span><span class="val">'+si.expirationDate+'</span></div>':'')+
             (si.maxConnections?'<div class="row"><span>Connexions max</span><span class="val">'+si.maxConnections+'</span></div>':'')+
             '<div class="row"><span>Chaînes live</span><span class="val" style="color:var(--green)">'+d.channels.length+'</span></div>'+
-            (d.categories?'<div class="row"><span>Catégories</span><span class="val">'+d.categories.length+'</span></div>':'')+
+            '<div class="row"><span>Catégories</span><span class="val">'+(d.categories?d.categories.length:'?')+'</span></div>'+
             '</div>';
         }
         var s={id:uid(),name:name,type:'xtream',host:host,user:user,pass:pass,url:host,chCount:d.channels.length};
@@ -714,13 +709,8 @@ function buildGroups(chs){var g={};chs.forEach(function(ch){if(!g[ch.group])g[ch
 
 function safeFetch(url,opts){
   return new Promise(function(res,rej){
-    var t=setTimeout(function(){rej(new Error('Timeout reseau (35s)'));},35000);
-    var defaultOpts={
-      method:'GET',
-      headers:{'Accept':'application/json','Content-Type':'application/json'}
-    };
-    var merged=opts?Object.assign({},defaultOpts,opts,{headers:Object.assign({},defaultOpts.headers,opts.headers||{})}):defaultOpts;
-    fetch(url,merged)
+    var t=setTimeout(function(){rej(new Error('Timeout réseau (30s)'));},30000);
+    fetch(url,opts||{})
       .then(function(r){clearTimeout(t);if(!r.ok) throw new Error('HTTP '+r.status);return r.json();})
       .then(res)
       .catch(function(e){clearTimeout(t);rej(e);});
@@ -831,12 +821,10 @@ function renderChList(chs){
 }
 
 /* ============================================================
-   LECTURE — avec fallback .m3u8 → .ts
+   LECTURE
    ============================================================ */
 function play(ch,idx){
   curCh=ch;curIdx=idx;retries=0;
-  // Stocker le fallback .ts fourni par le serveur Xtream
-  curFallbackUrl = ch.urlFallback || null;
   document.querySelectorAll('.gcard').forEach(function(c){c.classList.remove('active');});
   document.querySelectorAll('.chitem').forEach(function(c){c.classList.remove('active');});
   var card=document.querySelector('.gcard[data-idx="'+idx+'"]');
@@ -872,21 +860,11 @@ function loadStream(url){
   if(hlsObj){try{hlsObj.destroy();}catch(e){}hlsObj=null;}
   v.pause();
   try{v.removeAttribute('src');}catch(e){}
+  try{v.load();}catch(e){}
   var isHls=/\.m3u8($|\?)|\/m3u8|m3u8/i.test(url);
-  var isVidaa=/VIDAA|Hisense|HiSmartTV/i.test(navigator.userAgent);
-  if(isVidaa){
-    if(isHls&&v.canPlayType&&(v.canPlayType('application/vnd.apple.mpegurl')||v.canPlayType('application/x-mpegURL'))){
-      doNative(url,v);
-    } else if(isHls&&typeof Hls!=='undefined'&&Hls.isSupported&&Hls.isSupported()){
-      doHls(url,v);
-    } else {
-      doNative(url,v);
-    }
-  } else {
-    if(typeof Hls!=='undefined'&&Hls.isSupported&&Hls.isSupported()&&isHls) doHls(url,v);
-    else if(v.canPlayType&&(v.canPlayType('application/vnd.apple.mpegurl')||v.canPlayType('application/x-mpegURL'))&&isHls) doNative(url,v);
-    else doNative(url,v);
-  }
+  if(typeof Hls!=='undefined'&&Hls.isSupported&&Hls.isSupported()&&isHls) doHls(url,v);
+  else if(v.canPlayType&&v.canPlayType('application/vnd.apple.mpegurl')&&isHls) doNative(url,v);
+  else doNative(url,v);
 }
 
 function doHls(url,v){
@@ -894,93 +872,40 @@ function doHls(url,v){
     hlsObj=new Hls({
       enableWorker:false,
       lowLatencyMode:false,
-      backBufferLength:10,
-      maxBufferLength:15,
-      maxMaxBufferLength:60,
-      fragLoadingTimeOut:30000,
-      manifestLoadingTimeOut:20000,
-      levelLoadingTimeOut:20000,
-      fragLoadingMaxRetry:4,
-      manifestLoadingMaxRetry:3,
-      startFragPrefetch:false,
-      xhrSetup:function(xhr){try{xhr.withCredentials=false;}catch(ex){}}
+      backBufferLength:30,
+      maxBufferLength:20,
+      maxMaxBufferLength:300,
+      fragLoadingTimeOut:20000,
+      manifestLoadingTimeOut:15000,
+      levelLoadingTimeOut:15000
     });
     hlsObj.loadSource(url);
     hlsObj.attachMedia(v);
     hlsObj.once(Hls.Events.MANIFEST_PARSED,function(){
-      var p;try{p=v.play();}catch(ex){}
-      if(p&&p.then){
-        p.then(function(){hideSpin();setStatus('live',curCh?curCh.name:'');}).catch(function(){hideSpin();setTimeout(function(){try{v.play();}catch(ex){}},500);});
-      } else {hideSpin();setStatus('live',curCh?curCh.name:'');}
+      v.play().then(function(){hideSpin();setStatus('live',curCh?curCh.name:'');}).catch(function(){hideSpin();});
     });
     hlsObj.on(Hls.Events.ERROR,function(e,d){
       if(!d.fatal) return;
-      if(d.type===Hls.ErrorTypes.NETWORK_ERROR&&retries<MAX_RETRY){
-        retries++;setTimeout(function(){if(hlsObj){try{hlsObj.startLoad();}catch(ex){doNative(url,v);}}},2000*retries);
-      } else if(d.type===Hls.ErrorTypes.MEDIA_ERROR&&retries<MAX_RETRY){
-        retries++;try{hlsObj.recoverMediaError();}catch(ex){doNative(url,v);}
-      } else {
-        try{hlsObj.destroy();}catch(ex){}hlsObj=null;
-        // Fallback: essayer .ts natif si .m3u8 a échoué
-        if(curFallbackUrl && url !== curFallbackUrl){
-          var fb=curFallbackUrl; curFallbackUrl=null;
-          doNative(fb,v);
-        } else {
-          doNative(url,v);
-        }
-      }
+      if(d.type===Hls.ErrorTypes.NETWORK_ERROR&&retries<MAX_RETRY){retries++;setTimeout(function(){if(hlsObj)hlsObj.startLoad();},1500*retries);}
+      else if(d.type===Hls.ErrorTypes.MEDIA_ERROR&&retries<MAX_RETRY){retries++;hlsObj.recoverMediaError();}
+      else{try{hlsObj.destroy();}catch(ex){}hlsObj=null;doNative(url,v);}
     });
   }catch(e){doNative(url,v);}
 }
 
 function doNative(url,v){
-  try{v.src=url;}catch(e){showErrP('Erreur lecture');return;}
-  try{v.load();}catch(e){}
+  v.src=url;try{v.load();}catch(e){}
   var ok=false;
-  var errTimer=null;
-  function cleanup(){
-    v.removeEventListener('canplay',onCP);
-    v.removeEventListener('playing',onPL);
-    v.removeEventListener('loadeddata',onLD);
-    v.removeEventListener('error',onE);
-    if(errTimer){clearTimeout(errTimer);errTimer=null;}
-  }
-  function onCP(){if(ok)return;ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
-  function onPL(){if(ok)return;ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
-  function onLD(){if(ok)return;ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
-  function onE(){
-    if(ok)return;cleanup();
-    // Xtream: si .m3u8 échoue, essayer .ts natif
-    if(curFallbackUrl && url !== curFallbackUrl){
-      var fb=curFallbackUrl; curFallbackUrl=null;
-      doNative(fb,v);
-      return;
-    }
-    var msg='Flux inaccessible ou format non supporté';
-    try{if(v.error&&v.error.message)msg=v.error.message;}catch(ex){}
-    showErrP(msg);
-  }
+  function onCP(){v.removeEventListener('canplay',onCP);if(!ok){ok=true;hideSpin();setStatus('live',curCh?curCh.name:'');}}
+  function onE(){v.removeEventListener('error',onE);if(!ok)showErrP('Flux inaccessible ou format non supporté');}
   v.addEventListener('canplay',onCP);
-  v.addEventListener('playing',onPL);
-  v.addEventListener('loadeddata',onLD);
   v.addEventListener('error',onE);
-  var p;try{p=v.play();}catch(ex){}
-  if(p&&p.then){
-    p.then(function(){if(!ok){ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}}).catch(function(){});
-  }
-  // Timeout sécurité 8s
-  errTimer=setTimeout(function(){
-    if(!ok){
-      if(v.readyState>=3){ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
-      else if(curFallbackUrl && url !== curFallbackUrl){
-        cleanup();
-        var fb=curFallbackUrl; curFallbackUrl=null;
-        doNative(fb,v);
-      } else {
-        cleanup();showErrP('Flux indisponible ou connexion trop lente');
-      }
-    }
-  },8000);
+  v.play().then(function(){if(!ok){ok=true;hideSpin();setStatus('live',curCh?curCh.name:'');}}).catch(function(){
+    setTimeout(function(){
+      if(v.readyState>=3){hideSpin();setStatus('live',curCh?curCh.name:'');}
+      else if(v.error) showErrP('Erreur : '+(v.error.message||'inconnue'));
+    },3500);
+  });
 }
 
 function showSpin(){var s=document.getElementById('spinov');if(s)s.classList.add('show');}
@@ -992,7 +917,7 @@ function showErrP(msg){
   setStatus('err','Erreur flux');
 }
 function retryStream(){
-  if(!curCh)return;retries=0;curFallbackUrl=curCh.urlFallback||null;
+  if(!curCh)return;retries=0;
   var pe=document.getElementById('playerr');if(pe)pe.classList.remove('show');
   loadStream(curCh.url);
 }
