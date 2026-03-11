@@ -1,13 +1,20 @@
 /**
- * IPTV API Server - xtream.js
- * Vercel Serverless Function
+ * api/xtream.js — Vercel Serverless Function
  *
- * FIX: Sur Android Chrome, les segments HLS (.ts fragments dans le manifest .m3u8)
- * échouent avec levelLoadError (CORS / réseau). Solution: utiliser .ts direct
- * comme URL principale, et .m3u8 comme fallback pour Safari/iOS.
+ * FIX Mixed Content:
+ * Les URLs générées passent par /api/stream?url=... (proxy HTTPS)
+ * au lieu d'appeler directement le serveur HTTP IPTV.
  */
 
 const axios = require('axios');
+
+// BASE de l'API Vercel (pour construire les URLs proxy)
+// Vercel injecte VERCEL_URL automatiquement
+function getBase(req) {
+  const host = req.headers['x-forwarded-host'] || req.headers['host'] || 'lefong.vercel.app';
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  return `${proto}://${host}`;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,6 +32,7 @@ module.exports = async function handler(req, res) {
   if (!/^https?:\/\//i.test(host)) host = 'http://' + host;
 
   const apiBase = `${host}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+  const BASE = getBase(req);
 
   try {
     // 1. Vérifier le compte
@@ -71,22 +79,29 @@ module.exports = async function handler(req, res) {
     if (!rawStreams.length)
       return res.status(200).json({ ok: false, error: 'Aucune chaîne disponible sur ce serveur' });
 
-    // 4. Construction des chaînes
-    // IMPORTANT: url = .ts (direct, fonctionne sur Android/Chrome sans CORS sur fragments)
-    //            urlFallback = .m3u8 (pour Safari/iOS qui supporte HLS natif)
+    // 4. Construction des chaînes avec URLs proxy
     const u = encodeURIComponent(username);
     const p = encodeURIComponent(password);
 
     const channels = rawStreams.map((s, idx) => {
       const sid = s.stream_id;
       const group = catMap[s.category_id] || s.category_name || 'Divers';
+
+      // URL directe HTTP (pour construire les proxy URLs)
+      const rawTs  = `${host}/live/${u}/${p}/${sid}.ts`;
+      const rawM3u8 = `${host}/live/${u}/${p}/${sid}.m3u8`;
+
+      // URL proxifiées HTTPS — résolvent le Mixed Content sur Android
+      const proxyTs   = `${BASE}/api/stream?url=${encodeURIComponent(rawTs)}`;
+      const proxyM3u8 = `${BASE}/api/stream?url=${encodeURIComponent(rawM3u8)}`;
+
       return {
         id: idx,
         name: s.name || ('Chaîne ' + (idx + 1)),
-        // .ts direct = URL principale (pas de fragment HLS, pas de CORS sur segments)
-        url: `${host}/live/${u}/${p}/${sid}.ts`,
-        // .m3u8 = fallback pour les navigateurs qui supportent HLS natif (Safari iOS)
-        urlFallback: `${host}/live/${u}/${p}/${sid}.m3u8`,
+        // Principal: .ts via proxy HTTPS
+        url: proxyTs,
+        // Fallback: .m3u8 via proxy HTTPS
+        urlFallback: proxyM3u8,
         logo: s.stream_icon || '',
         group: group,
         streamId: sid,
