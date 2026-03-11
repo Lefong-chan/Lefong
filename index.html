@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="format-detection" content="telephone=no">
+<title>IPTV Player</title>
+<link rel="stylesheet" href="style.css">
+
+<!-- Font Awesome — CDN principal + CDN de secours -->
+<link id="fa-cdn" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link id="fa-cdn2" rel="stylesheet" href="https://use.fontawesome.com/releases/v6.5.1/css/all.css" disabled>
+<script>
+(function(){
+  // Si le CDN principal échoue, activer le CDN de secours
+  var t = setTimeout(function(){
+    var el = document.getElementById('fa-cdn2');
+    if(el) el.disabled = false;
+  }, 3000);
+  document.getElementById('fa-cdn').addEventListener('load', function(){ clearTimeout(t); });
+})();
+</script>
+
+<!-- hls.js — CDN avec 3 fallbacks (compatible Smart TV) -->
+<script>
+(function(){
+  var loaded=false;
+  function loadScript(src,fallback){
+    if(loaded) return;
+    var s=document.createElement('script');
+    s.src=src;
+    s.onload=function(){loaded=true;};
+    if(fallback) s.onerror=function(){if(!loaded) loadScript(fallback);};
+    document.head.appendChild(s);
+  }
+  // 1.4.14 = version stable eprouvee sur Smart TV
+  loadScript(
+    'https://cdn.jsdelivr.net/npm/hls.js@1.4.14/dist/hls.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.14/hls.min.js'
+  );
+})();
+</script>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo">IPTV<b>+</b></div>
+  <div class="hsrch">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <input type="text" id="msearch" placeholder="Rechercher une chaîne... (Ctrl+K)">
+  </div>
+  <div class="hright">
+    <div class="sbadge">
+      <div class="sdot load" id="sdot"></div>
+      <span id="stxt">Connexion...</span>
+    </div>
+    <button class="hbtn desktop-only" onclick="openCmd()">
+      <i class="fa-solid fa-magnifying-glass"></i> Recherche rapide <kbd>Ctrl+K</kbd>
+    </button>
+    <button class="hbtn red" onclick="openModal()">
+      <i class="fa-solid fa-plus"></i> Source
+    </button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sbov" id="sbov" onclick="closeSb()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sbhdr">
+      <div class="sbhdr-label">Bibliothèque</div>
+      <div class="sbtabs">
+        <button class="sbtab active" id="tabC" onclick="switchTab('countries')">
+          <i class="fa-solid fa-satellite-dish"></i> Sources
+        </button>
+        <button class="sbtab" id="tabCh" onclick="switchTab('channels')">
+          <i class="fa-solid fa-list"></i> Chaînes
+        </button>
+      </div>
+    </div>
+
+    <!-- PANEL: Sources -->
+    <div class="sbpanel active" id="panel-countries">
+
+      <div class="src-list">
+        <div class="src-list-title">
+          <span><i class="fa-solid fa-satellite-dish" style="margin-right:5px;color:var(--accent)"></i>Sources IPTV</span>
+        </div>
+        <div id="srcItems"></div>
+        <button class="add-src-btn" onclick="openModal()">
+          <i class="fa-solid fa-plus"></i> Ajouter une source
+        </button>
+      </div>
+
+      <div class="country-menu">
+        <div class="country-menu-title">
+          <i class="fa-solid fa-globe"></i>
+          Sources par défaut
+        </div>
+        <div class="country-btns" id="countryMenu"></div>
+      </div>
+
+      <div class="clist" id="clist"></div>
+
+    </div>
+
+    <!-- PANEL: Chaînes -->
+    <div class="sbpanel" id="panel-channels">
+      <div class="chpaneltop">
+        <div class="chpnav">
+          <div class="chpname" id="chpname">Toutes les chaînes</div>
+          <button class="backbtn" onclick="filterGroup(null); switchTab('countries');">
+            <i class="fa-solid fa-arrow-left"></i> Retour
+          </button>
+        </div>
+        <div class="chfw">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input class="chfinput" id="chfilter" type="text" placeholder="Filtrer chaînes...">
+        </div>
+      </div>
+      <div class="chlist" id="chlist"></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Welcome -->
+    <div class="welcome" id="welcomeScr" style="display:none;">
+      <div class="welcome-logo">IPTV</div>
+      <div class="welcome-sub">Sélectionnez une source dans la barre de gauche ou ajoutez une nouvelle source.</div>
+      <div class="welcome-cards">
+        <div class="wcard" onclick="openModal('url')">
+          <div class="wcard-icon m3u"><i class="fa-solid fa-link"></i></div>
+          <div class="wcard-title">M3U URL</div>
+          <div class="wcard-desc">Lien direct vers une playlist M3U</div>
+        </div>
+        <div class="wcard" onclick="openModal('xtream')">
+          <div class="wcard-icon xtream"><i class="fa-solid fa-server"></i></div>
+          <div class="wcard-title">Xtream Codes</div>
+          <div class="wcard-desc">Serveur IPTV avec login/pass</div>
+        </div>
+        <div class="wcard" onclick="openModal('file')">
+          <div class="wcard-icon file"><i class="fa-solid fa-file-import"></i></div>
+          <div class="wcard-title">Fichier M3U</div>
+          <div class="wcard-desc">Importer un fichier local</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loadscr" id="loadscr" style="display:none;">
+      <div class="loadlogo">IPTV</div>
+      <div class="loadsub">
+        <i class="fa-solid fa-circle-notch fa-spin" style="margin-right:7px;"></i>
+        <span id="loadtxt">Chargement...</span>
+      </div>
+      <div class="loadprog"><div class="loadbar"></div></div>
+    </div>
+
+    <!-- Grid -->
+    <div class="gridview" id="gridview">
+      <div class="gridtop">
+        <div>
+          <div class="gridttl" id="gridttl">TOUTES LES <span>CHAÎNES</span></div>
+          <div class="gridmeta" id="gridmeta"></div>
+        </div>
+        <div class="vtoggle">
+          <button class="vbtn active" onclick="setView('grid',this)"><i class="fa-solid fa-grip"></i></button>
+          <button class="vbtn" onclick="setView('list',this)"><i class="fa-solid fa-list"></i></button>
+        </div>
+      </div>
+      <div class="chgrid" id="chgrid"></div>
+    </div>
+
+    <!-- Player -->
+    <div class="playerview" id="playerview">
+      <div class="pwrap" id="pwrap">
+        <video id="vid" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5"></video>
+        <div class="spinov" id="spinov"><div class="spin"></div></div>
+        <div class="playerr" id="playerr">
+          <div class="errico"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="errtitle">FLUX INDISPONIBLE</div>
+          <div class="errmsg" id="errmsg">Impossible de lire cette chaîne.</div>
+          <button class="retrybtn" onclick="retryStream()">
+            <i class="fa-solid fa-rotate-right"></i> Réessayer
+          </button>
+        </div>
+        <div class="playerov">
+          <div class="nowbadge"><i class="fa-solid fa-circle" style="font-size:.4rem;"></i> En direct</div>
+          <div class="nowname" id="nowname">--</div>
+          <div class="nowgrp"  id="nowgrp"></div>
+          <div class="ctrlrow">
+            <button class="cbtn" onclick="prevCh()"><i class="fa-solid fa-backward-step"></i></button>
+            <button class="cbtn big" id="ppbtn" onclick="togglePlay()"><i class="fa-solid fa-pause"></i></button>
+            <button class="cbtn" onclick="nextCh()"><i class="fa-solid fa-forward-step"></i></button>
+            <button class="cbtn" onclick="stopStream()"><i class="fa-solid fa-stop"></i></button>
+            <div class="volgrp">
+              <i class="fa-solid fa-volume-high"></i>
+              <input type="range" id="volr" min="0" max="1" step="0.05" value="1" oninput="setVol(this.value)">
+            </div>
+            <button class="fsbtn" onclick="toggleFS()"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="pbar">
+        <button class="navbtn" onclick="prevCh()"><i class="fa-solid fa-chevron-left"></i> Préc.</button>
+        <button class="navbtn" onclick="nextCh()">Suiv. <i class="fa-solid fa-chevron-right"></i></button>
+        <div class="chctr">Ch. <span id="chcur">--</span> / <span id="chtot">--</span></div>
+        <button class="closebtn" onclick="closePlayer()"><i class="fa-solid fa-xmark"></i> Fermer</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footbrand">IPTV+</div>
+  <div class="footlinks">
+    <a class="footlink" href="tel:+261331926914"><i class="fa-solid fa-phone"></i> +261 33 19 269 14</a>
+    <a class="footlink" href="https://facebook.com" target="_blank" rel="noopener"><i class="fa-brands fa-facebook"></i> Le Fong &#128337;</a>
+  </div>
+  <div class="footcopy">&copy; 2026 IPTV+</div>
+</footer>
+
+<!-- MOBILE NAV -->
+<nav class="mobilenav">
+  <div class="mnav-inner">
+    <button class="mnbtn active" id="mn-home"    onclick="mnGo('home')"><i class="fa-solid fa-house"></i><span>Accueil</span></button>
+    <button class="mnbtn"        id="mn-pays"    onclick="mnGo('pays')"><i class="fa-solid fa-globe"></i><span>Sources</span></button>
+    <button class="mnbtn center-btn"             onclick="openModal()"><i class="fa-solid fa-plus"></i><span>Source</span></button>
+    <button class="mnbtn"        id="mn-search"  onclick="openCmd()"><i class="fa-solid fa-magnifying-glass"></i><span>Chercher</span></button>
+    <button class="mnbtn"        id="mn-chaines" onclick="mnGo('chaines')"><i class="fa-solid fa-list"></i><span>Chaînes</span></button>
+  </div>
+</nav>
+
+<!-- COMMAND PALETTE -->
+<div class="cmdbg" id="cmdbg">
+  <div class="cmdbox">
+    <div class="cmdhead">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="cmdinput" placeholder="Rechercher une chaîne...">
+      <span class="cmdesc"><kbd>↑↓</kbd> Nav &nbsp;<kbd>↵</kbd> Lancer &nbsp;<kbd>Esc</kbd> Fermer</span>
+    </div>
+    <div class="cmdlist" id="cmdlist"></div>
+  </div>
+</div>
+
+<!-- MODAL SOURCE -->
+<div class="modalbg" id="srcModal">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mtitle">AJOUTER UNE SOURCE</div>
+      <button class="mclose" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody" id="modalBody">
+
+      <div class="src-type-tabs">
+        <button class="src-type-btn selected" id="typeBtn-url" onclick="selectSrcType('url',this)">
+          <i class="fa-solid fa-link"></i><span>M3U URL</span>
+        </button>
+        <button class="src-type-btn" id="typeBtn-xtream" onclick="selectSrcType('xtream',this)">
+          <i class="fa-solid fa-server"></i><span>Xtream</span>
+        </button>
+        <button class="src-type-btn" id="typeBtn-file" onclick="selectSrcType('file',this)">
+          <i class="fa-solid fa-file-import"></i><span>Fichier</span>
+        </button>
+      </div>
+
+      <div class="fgroup">
+        <label class="flabel">Nom de la source</label>
+        <input class="finput" id="srcName" type="text" placeholder="Ex: Ma chaîne française">
+      </div>
+
+      <div class="type-panel active" id="panel-url">
+        <div class="fgroup">
+          <label class="flabel">URL M3U / M3U8</label>
+          <input class="finput" id="m3uUrl" type="url" placeholder="https://exemple.com/playlist.m3u">
+        </div>
+      </div>
+
+      <div class="type-panel" id="panel-xtream">
+        <div class="xt-info">
+          <b>Xtream Codes</b> — Connexion directe avec vos identifiants.
+        </div>
+        <div class="fgroup">
+          <label class="flabel">URL du serveur</label>
+          <input class="finput" id="xtHost" type="url" placeholder="http://votre-serveur.com:8080">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Nom d'utilisateur</label>
+          <input class="finput" id="xtUser" type="text" placeholder="username">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Mot de passe</label>
+          <input class="finput" id="xtPass" type="password" placeholder="password">
+        </div>
+        <div id="xtServerInfo" style="display:none;"></div>
+      </div>
+
+      <div class="type-panel" id="panel-file">
+        <div class="fgroup">
+          <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Glissez un fichier <strong>.m3u</strong> ou <strong>.m3u8</strong> ici</p>
+            <p style="font-size:.68rem;">ou cliquez pour sélectionner</p>
+          </div>
+          <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt" style="display:none;">
+          <div class="file-name" id="fileName">
+            <i class="fa-solid fa-file-lines"></i>
+            <span id="fileNameTxt"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="mfoot">
+      <button class="mbtn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="mbtn-add" id="addSrcBtn" onclick="addSource()">
+        <i class="fa-solid fa-plus"></i> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMATION (remplace confirm() non supporté sur Smart TV) -->
+<div class="modalbg" id="confirmModal" style="display:none;z-index:10000;">
+  <div class="modal" style="max-width:340px;">
+    <div class="mhdr">
+      <div class="mtitle"><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent);margin-right:8px;"></i>CONFIRMATION</div>
+    </div>
+    <div class="mbody" style="padding:20px;text-align:center;">
+      <p id="confirmMsg" style="color:var(--t2);margin-bottom:20px;font-size:.92rem;line-height:1.6;"></p>
+    </div>
+    <div class="mfoot">
+      <button class="mbtn-cancel" id="confirmNo">Annuler</button>
+      <button class="mbtn-add" id="confirmYes" style="background:#c50811;">
+        <i class="fa-solid fa-trash"></i> Supprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-t" id="toastt"></div>
+  <div class="toast-s" id="toasts"></div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+var API_BASE = 'https://lefong.vercel.app';
+
+/* ============================================================
+   STOCKAGE — compatible Smart TV (localStorage peut être absent)
+   ============================================================ */
+var _mem = {};
+function storeGet(k) {
+  try { if(typeof localStorage!=='undefined'){var v=localStorage.getItem(k);return v!==null?v:(_mem[k]||null);} } catch(e){}
+  return _mem[k]||null;
+}
+function storeSet(k,v) {
+  try { if(typeof localStorage!=='undefined') localStorage.setItem(k,v); } catch(e){}
+  _mem[k]=v;
+}
+
+/* ============================================================
+   ÉTAT GLOBAL
+   ============================================================ */
+var channels=[], filtered=[], groups={};
+var curCh=null, curIdx=-1, curGroup=null;
+var hlsObj=null, curUrl='', retries=0, MAX_RETRY=3;
+var cmdRes=[], cmdSel=0;
+var sources=[], curSrcId=null;
+var modalSrcType='url', pendingFileData=null;
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', function(){
+  loadLocalSources();
+  fetchDefaultSources();
+});
+
+/* ============================================================
+   STOCKAGE SOURCES
+   ============================================================ */
+function loadLocalSources(){
+  try { var r=storeGet('iptv_custom_sources'); sources=r?JSON.parse(r):[]; } catch(e){ sources=[]; }
+  renderSrcList();
+}
+function saveLocalSources(){
+  var d=sources.map(function(s){ return {id:s.id,name:s.name,type:s.type,url:s.url,host:s.host,chCount:s.chCount||0}; });
+  try { storeSet('iptv_custom_sources',JSON.stringify(d)); } catch(e){}
+}
+
+/* ============================================================
+   SOURCES PAR DÉFAUT
+   ============================================================ */
+function fetchDefaultSources(){
+  setStatus('load','Connexion API...');
+  safeFetch(API_BASE+'/api/sources')
+    .then(function(d){
+      if(!d.ok) throw new Error(d.error||'Erreur API');
+      renderCountryMenu(d.sources);
+      setStatus('live','API connectée');
+      if(d.sources&&d.sources.length>0) loadDefaultSource(d.sources[0]);
+      else showWelcome();
+    })
+    .catch(function(){
+      setStatus('err','API hors ligne');
+      showToast('API introuvable','Vérifiez votre connexion');
+      showWelcome();
+    });
+}
+
+function renderCountryMenu(list){
+  var el=document.getElementById('countryMenu'); if(!el) return;
+  el.innerHTML='';
+  (list||[]).forEach(function(s){
+    var btn=document.createElement('button');
+    btn.className='country-btn';
+    btn.setAttribute('data-id','api_'+s.id);
+    var badge=s.chCount?(' <span style="font-size:.62rem;color:var(--t3);">('+s.chCount+')</span>'):'';
+    btn.innerHTML='<i class="fa-solid fa-tv" style="color:var(--t3);font-size:.75rem;flex-shrink:0;"></i><span class="country-label">'+xss(s.name)+badge+'</span>';
+    btn.onclick=function(){
+      document.querySelectorAll('.country-btn').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      loadDefaultSource(s);
+    };
+    el.appendChild(btn);
+  });
+}
+
+function loadDefaultSource(src){
+  curSrcId='api_'+src.id;
+  document.querySelectorAll('.country-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-id')===curSrcId);
+  });
+  showLoading('Chargement des chaînes...');
+  safeFetch(API_BASE+'/api/channels/'+src.id)
+    .then(function(d){
+      if(!d.ok) throw new Error(d.error||'Erreur API');
+      applyChannels(d.channels,d.source,src.name);
+    })
+    .catch(function(e){
+      hideLoading(); setStatus('err','Erreur chargement');
+      showToast('Erreur',e.message?e.message.substring(0,60):'Erreur inconnue');
+      showWelcome();
+    });
+}
+
+/* ============================================================
+   SOURCES PERSONNALISÉES
+   ============================================================ */
+function renderSrcList(){
+  var el=document.getElementById('srcItems'); if(!el) return;
+  if(!sources.length){
+    el.innerHTML='<div style="text-align:center;padding:10px 4px;color:var(--t3);font-size:.75rem;"><i class="fa-solid fa-satellite-dish" style="display:block;font-size:1.1rem;margin-bottom:6px;color:var(--accent);"></i>Aucune source ajoutée</div>';
+    return;
+  }
+  var icons={url:'fa-solid fa-link','file-content':'fa-solid fa-file-lines',xtream:'fa-solid fa-server'};
+  var tc={url:'m3u',xtream:'xtream','file-content':'file'};
+  el.innerHTML=sources.map(function(s){
+    var ico=icons[s.type]||'fa-solid fa-tv';
+    return '<div class="src-item'+(curSrcId===s.id?' active':'')+'" onclick="loadCustomSource(\''+s.id+'\')">'+
+      '<div class="src-icon '+(tc[s.type]||'m3u')+'"><i class="'+ico+'"></i></div>'+
+      '<div style="flex:1;min-width:0;"><div class="src-name">'+xss(s.name)+'</div>'+
+      '<div class="src-meta">'+(s.chCount?s.chCount+' ch.':s.type.toUpperCase())+'</div></div>'+
+      '<button class="src-del" onclick="delSource(event,\''+s.id+'\')" title="Supprimer"><i class="fa-solid fa-trash"></i></button></div>';
+  }).join('');
+}
+
+function loadCustomSource(id){
+  var s=sources.find(function(x){return x.id===id;});
+  if(!s) return;
+  curSrcId=id;
+  document.querySelectorAll('.country-btn').forEach(function(b){b.classList.remove('active');});
+  renderSrcList();
+  if(s.type==='file-content'){
+    if(!s.data){showToast('Vide','Données manquantes');return;}
+    showLoading('Analyse du fichier...');
+    setTimeout(function(){applyChannels(parseM3ULocal(s.data),s.name,s.name);},10);
+  } else if(s.type==='url'){
+    showLoading('Chargement '+s.name+'...');
+    safeFetch(API_BASE+'/api/m3u/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:s.url,name:s.name})})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Erreur');
+        s.chCount=d.channels.length; saveLocalSources(); renderSrcList();
+        applyChannels(d.channels,d.source,s.name);
+      })
+      .catch(function(e){hideLoading();setStatus('err','Erreur');showToast('Erreur',e.message?e.message.substring(0,60):'');});
+  } else if(s.type==='xtream'){
+    showLoading('Connexion Xtream...');
+    safeFetch(API_BASE+'/api/xtream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:s.host,username:s.user,password:s.pass})})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Erreur Xtream');
+        s.chCount=d.channels.length; saveLocalSources(); renderSrcList();
+        applyChannels(d.channels,d.source,s.name);
+      })
+      .catch(function(e){hideLoading();setStatus('err','Erreur Xtream');showToast('Erreur Xtream',e.message?e.message.substring(0,60):'');});
+  }
+}
+
+function delSource(e,id){
+  e.stopPropagation();
+  showConfirm('Supprimer cette source ?',function(){
+    sources=sources.filter(function(s){return s.id!==id;});
+    saveLocalSources(); renderSrcList();
+    if(curSrcId===id){
+      curSrcId=null; channels=[]; filtered=[]; groups={};
+      document.getElementById('gridview').classList.remove('show');
+      document.getElementById('playerview').classList.remove('show');
+      showWelcome(); setStatus('live','Aucune source');
+      renderCountries(); renderChList([]);
+    }
+    showToast('Source supprimée','');
+  });
+}
+
+/* ============================================================
+   CONFIRM MODAL (remplace window.confirm)
+   ============================================================ */
+function showConfirm(msg,onYes){
+  var modal=document.getElementById('confirmModal');
+  document.getElementById('confirmMsg').textContent=msg;
+  modal.style.display='flex';
+  var close=function(){modal.style.display='none';};
+  document.getElementById('confirmYes').onclick=function(){close();onYes();};
+  document.getElementById('confirmNo').onclick=close;
+}
+
+/* ============================================================
+   MODAL SOURCE
+   ============================================================ */
+function openModal(type){
+  document.getElementById('srcModal').classList.add('open');
+  if(type) selectSrcType(type,document.getElementById('typeBtn-'+type));
+  setTimeout(function(){try{document.getElementById('srcName').focus();}catch(e){}},100);
+  pendingFileData=null;
+  document.getElementById('fileName').classList.remove('show');
+  document.getElementById('m3uUrl').value='';
+  document.getElementById('xtHost').value='';
+  document.getElementById('xtUser').value='';
+  document.getElementById('xtPass').value='';
+  document.getElementById('srcName').value='';
+  document.getElementById('xtServerInfo').style.display='none';
+  var old=document.getElementById('fetchErrBox'); if(old) old.remove();
+}
+function closeModal(){
+  document.getElementById('srcModal').classList.remove('open');
+  var old=document.getElementById('fetchErrBox'); if(old) old.remove();
+}
+function selectSrcType(type,btnEl){
+  modalSrcType=type;
+  document.querySelectorAll('.src-type-btn').forEach(function(b){b.classList.remove('selected');});
+  if(btnEl) btnEl.classList.add('selected');
+  ['url','xtream','file'].forEach(function(t){
+    var p=document.getElementById('panel-'+t); if(p) p.classList.remove('active');
+  });
+  var tp=document.getElementById('panel-'+type); if(tp) tp.classList.add('active');
+  var old=document.getElementById('fetchErrBox'); if(old) old.remove();
+}
+
+document.getElementById('fileDrop').addEventListener('dragover',function(e){e.preventDefault();this.classList.add('dragover');});
+document.getElementById('fileDrop').addEventListener('dragleave',function(){this.classList.remove('dragover');});
+document.getElementById('fileDrop').addEventListener('drop',function(e){
+  e.preventDefault();this.classList.remove('dragover');
+  var f=e.dataTransfer.files[0]; if(f) readFile(f);
+});
+document.getElementById('fileInput').addEventListener('change',function(e){if(e.target.files[0]) readFile(e.target.files[0]);});
+
+function readFile(file){
+  document.getElementById('fileNameTxt').textContent=file.name;
+  document.getElementById('fileName').classList.add('show');
+  if(!document.getElementById('srcName').value)
+    document.getElementById('srcName').value=file.name.replace(/\.(m3u8?|txt)$/i,'');
+  var r=new FileReader();
+  r.onload=function(ev){pendingFileData=ev.target.result;};
+  r.readAsText(file);
+}
+
+function addSource(){
+  var name=document.getElementById('srcName').value.trim()||('Source '+(sources.length+1));
+  var old=document.getElementById('fetchErrBox'); if(old) old.remove();
+  setModalLoading(true);
+  if(modalSrcType==='url'){
+    var url=document.getElementById('m3uUrl').value.trim();
+    if(!url){setModalLoading(false);showInlineErr('Entrez une URL valide.');return;}
+    safeFetch(API_BASE+'/api/m3u/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,name:name})})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Erreur');
+        var s={id:uid(),name:name,type:'url',url:url,chCount:d.channels.length};
+        sources.push(s);saveLocalSources();renderSrcList();
+        curSrcId=s.id;renderSrcList();
+        applyChannels(d.channels,d.source,name);
+        setModalLoading(false);closeModal();
+      })
+      .catch(function(e){setModalLoading(false);showInlineErr(e.message||'Erreur inconnue');});
+  } else if(modalSrcType==='xtream'){
+    var host=document.getElementById('xtHost').value.trim().replace(/\/$/,'');
+    var user=document.getElementById('xtUser').value.trim();
+    var pass=document.getElementById('xtPass').value.trim();
+    if(!host||!user||!pass){setModalLoading(false);showInlineErr('Remplissez tous les champs.');return;}
+    safeFetch(API_BASE+'/api/xtream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:host,username:user,password:pass})})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Erreur Xtream');
+        if(d.serverInfo){
+          var si=d.serverInfo;
+          document.getElementById('xtServerInfo').style.display='block';
+          document.getElementById('xtServerInfo').innerHTML=
+            '<div class="xt-server-info">'+
+            (si.expirationDate?'<div class="row"><span>Expiration</span><span class="val">'+si.expirationDate+'</span></div>':'')+
+            (si.maxConnections?'<div class="row"><span>Connexions max</span><span class="val">'+si.maxConnections+'</span></div>':'')+
+            '<div class="row"><span>Chaînes live</span><span class="val" style="color:var(--green)">'+d.channels.length+'</span></div>'+
+            '<div class="row"><span>Catégories</span><span class="val">'+(d.categories?d.categories.length:'?')+'</span></div>'+
+            '</div>';
+        }
+        var s={id:uid(),name:name,type:'xtream',host:host,user:user,pass:pass,url:host,chCount:d.channels.length};
+        sources.push(s);saveLocalSources();
+        curSrcId=s.id;renderSrcList();
+        applyChannels(d.channels,d.source,name);
+        setModalLoading(false);closeModal();
+      })
+      .catch(function(e){setModalLoading(false);showInlineErr(e.message||'Erreur inconnue');});
+  } else if(modalSrcType==='file'){
+    if(!pendingFileData){setModalLoading(false);showInlineErr('Sélectionnez un fichier .m3u ou .m3u8');return;}
+    safeFetch(API_BASE+'/api/m3u/content',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:pendingFileData,name:name})})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Erreur parsing');
+        var s={id:uid(),name:name,type:'file-content',data:pendingFileData,chCount:d.channels.length};
+        sources.push(s);saveLocalSources();
+        curSrcId=s.id;renderSrcList();
+        applyChannels(d.channels,d.source,name);
+        setModalLoading(false);closeModal();
+      })
+      .catch(function(e){setModalLoading(false);showInlineErr(e.message||'Erreur inconnue');});
+  }
+}
+
+function setModalLoading(on){
+  var btn=document.getElementById('addSrcBtn');
+  if(on){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> Connexion...';}
+  else {btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-plus"></i> Ajouter';}
+}
+function showInlineErr(msg){
+  var old=document.getElementById('fetchErrBox'); if(old) old.remove();
+  var div=document.createElement('div');
+  div.id='fetchErrBox'; div.className='err-inline';
+  div.innerHTML='<div class="err-inline-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Erreur</div>'+
+    '<div class="err-inline-msg">'+xss(msg)+'</div>'+
+    '<div class="err-inline-tips"><strong>Solutions :</strong><br>&#x2022; Vérifiez l\'URL et les identifiants<br>&#x2022; Le serveur est peut-être hors ligne</div>';
+  document.getElementById('modalBody').appendChild(div);
+  document.getElementById('modalBody').scrollTop=9999;
+}
+
+/* ============================================================
+   PARSEUR M3U LOCAL
+   ============================================================ */
+function parseM3ULocal(txt){
+  var lines=txt.split(/\r?\n/),chs=[],cur=null;
+  for(var i=0;i<lines.length;i++){
+    var l=lines[i].trim();
+    if(l.indexOf('#EXTINF')===0){
+      cur={id:chs.length,name:'',url:'',logo:'',group:'Divers'};
+      var nm=l.match(/,(.+)$/); if(nm) cur.name=nm[1].trim();
+      var lg=l.match(/tvg-logo="([^"]*)"/i); if(lg&&lg[1].trim()) cur.logo=lg[1].trim();
+      var gr=l.match(/group-title="([^"]*)"/i); if(gr&&gr[1].trim()) cur.group=gr[1].trim();
+    } else if(l&&l.indexOf('#')!==0&&cur){
+      cur.url=l; if(cur.name&&cur.url) chs.push(cur); cur=null;
+    }
+  }
+  return chs;
+}
+
+/* ============================================================
+   APPLIQUER CHAÎNES
+   ============================================================ */
+function applyChannels(chs,sourceName,displayName){
+  if(!chs||!chs.length){
+    hideLoading();setStatus('err','Aucune chaîne');
+    showToast('Vide','Aucune chaîne trouvée');showWelcome();return;
+  }
+  chs.forEach(function(ch,i){ch.id=i;});
+  channels=chs;groups=buildGroups(chs);filtered=chs.slice();curGroup=null;
+  renderCountries();renderGrid(chs,'TOUTES LES');renderChList(chs);
+  hideLoading();
+  document.getElementById('gridview').classList.add('show');
+  document.getElementById('welcomeScr').style.display='none';
+  var gc=Object.keys(groups).length;
+  setStatus('live',chs.length+' ch / '+gc+' gr.');
+  document.getElementById('gridmeta').textContent=chs.length+' chaînes / '+gc+' groupes / '+(displayName||sourceName||'');
+  showToast(xss(displayName||sourceName||''),chs.length+' chaînes chargées');
+}
+
+/* ============================================================
+   UTILITAIRES
+   ============================================================ */
+function uid(){return 'src_'+Date.now()+'_'+Math.random().toString(36).slice(2);}
+function xss(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function buildGroups(chs){var g={};chs.forEach(function(ch){if(!g[ch.group])g[ch.group]=[];g[ch.group].push(ch);});return g;}
+
+function safeFetch(url,opts){
+  return new Promise(function(res,rej){
+    var t=setTimeout(function(){rej(new Error('Timeout reseau (35s)'));},35000);
+    var defaultOpts={
+      method:'GET',
+      headers:{'Accept':'application/json','Content-Type':'application/json'}
+    };
+    var merged=opts?Object.assign({},defaultOpts,opts,{headers:Object.assign({},defaultOpts.headers,opts.headers||{})}):defaultOpts;
+    fetch(url,merged)
+      .then(function(r){clearTimeout(t);if(!r.ok) throw new Error('HTTP '+r.status);return r.json();})
+      .then(res)
+      .catch(function(e){clearTimeout(t);rej(e);});
+  });
+}
+
+function setStatus(type,txt){
+  var map={live:'live',err:'err',load:'load'};
+  var dot=document.getElementById('sdot'),stxt=document.getElementById('stxt');
+  if(dot) dot.className='sdot '+(map[type]||'');
+  if(stxt) stxt.textContent=txt;
+}
+function showWelcome(){var w=document.getElementById('welcomeScr');if(w) w.style.display='flex';}
+function showLoading(txt){
+  document.getElementById('welcomeScr').style.display='none';
+  document.getElementById('gridview').classList.remove('show');
+  document.getElementById('loadscr').style.display='flex';
+  document.getElementById('loadtxt').textContent=txt||'Chargement...';
+}
+function hideLoading(){var l=document.getElementById('loadscr');if(l) l.style.display='none';}
+
+function gIcon(g){
+  var s=g.toLowerCase();
+  if(/sport|foot|nba|tennis|rugby|basket/.test(s)) return 'fa-solid fa-futbol';
+  if(/news|info|actua|journal|bfm/.test(s))        return 'fa-solid fa-newspaper';
+  if(/kids|enfant|junior|cartoon|gulli/.test(s))   return 'fa-solid fa-star';
+  if(/cine|movie|film|hbo|prime|netflix|canal/.test(s)) return 'fa-solid fa-film';
+  if(/music|musique|mtv|clip/.test(s))             return 'fa-solid fa-music';
+  if(/anime|manga/.test(s))                        return 'fa-solid fa-dragon';
+  if(/doc|nature|discovery|national/.test(s))      return 'fa-solid fa-video';
+  if(/africa|afrique/.test(s))                     return 'fa-solid fa-earth-africa';
+  return 'fa-solid fa-tv';
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderCountries(){
+  var list=document.getElementById('clist'); list.innerHTML='';
+  if(!channels.length){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:.78rem;"><i class="fa-solid fa-arrow-up" style="display:block;font-size:.9rem;margin-bottom:8px;"></i>Ajoutez une source</div>';
+    return;
+  }
+  var allEl=document.createElement('div');
+  allEl.className='citem'+(curGroup===null?' active':'');
+  allEl.innerHTML='<i class="fa-solid fa-globe cico"></i><span class="cname">Toutes les chaînes</span><span class="ccnt">'+channels.length+'</span>';
+  allEl.onclick=function(){filterGroup(null);};
+  list.appendChild(allEl);
+  var keys=Object.keys(groups).sort(function(a,b){return a.localeCompare(b);});
+  keys.forEach(function(g){
+    var chs=groups[g];
+    var el=document.createElement('div');
+    el.className='citem'+(curGroup===g?' active':'');
+    el.innerHTML='<i class="'+gIcon(g)+' cico"></i><span class="cname" title="'+xss(g)+'">'+xss(g)+'</span><span class="ccnt">'+chs.length+'</span>';
+    el.onclick=function(){filterGroup(g);};
+    list.appendChild(el);
+  });
+}
+
+function filterGroup(g){
+  curGroup=g;
+  var chs=g?(groups[g]||[]):channels;
+  filtered=chs.slice();
+  renderGrid(chs,g?g.toUpperCase():'TOUTES LES');
+  renderChList(chs);renderCountries();
+  document.getElementById('gridmeta').textContent=chs.length+' chaînes'+(g?' / '+g:'');
+  if(g){document.getElementById('chpname').textContent=g;switchTab('channels');}
+  closeSb();setMn('home');
+}
+
+function renderGrid(chs,titleStr){
+  var parts=titleStr.split(' '),last=parts.pop();
+  document.getElementById('gridttl').innerHTML=parts.join(' ')+' <span>'+last+'</span>';
+  var grid=document.getElementById('chgrid');grid.innerHTML='';
+  chs.forEach(function(ch,idx){
+    var card=document.createElement('div');
+    card.className='gcard'+(curCh&&curCh.id===ch.id?' active':'');
+    card.dataset.idx=idx;
+    var th=ch.logo
+      ?'<img src="'+xss(ch.logo)+'" loading="lazy" onerror="this.parentNode.innerHTML=\'<span class=cardtxt>'+xss(ch.name.substring(0,18))+'</span>\'" alt="">'
+      :'<span class="cardtxt">'+xss(ch.name.substring(0,18))+'</span>';
+    card.innerHTML=
+      '<div class="cardthumb">'+th+'<div class="playov"><i class="fa-solid fa-play"></i></div></div>'+
+      '<div class="cardnum">'+(idx+1)+'</div>'+
+      '<div class="cardbody"><div class="cardname">'+xss(ch.name)+'</div><div class="cardgrp">'+xss(ch.group)+'</div></div>';
+    card.onclick=function(){play(ch,idx);};
+    grid.appendChild(card);
+  });
+}
+
+function renderChList(chs){
+  var list=document.getElementById('chlist');list.innerHTML='';
+  chs.forEach(function(ch,idx){
+    var item=document.createElement('div');
+    item.className='chitem'+(curCh&&curCh.id===ch.id?' active':'');
+    item.dataset.chidx=idx;
+    var logo=ch.logo
+      ?'<img src="'+xss(ch.logo)+'" loading="lazy" onerror="this.style.display=\'none\'" alt="">'
+      :xss(ch.name.substring(0,4));
+    item.innerHTML=
+      '<span class="chnbadge">'+(idx+1)+'</span>'+
+      '<div class="chlogo">'+logo+'</div>'+
+      '<div class="chinfo"><div class="chn">'+xss(ch.name)+'</div><div class="chg">'+xss(ch.group)+'</div></div>'+
+      '<i class="fa-solid fa-play chpico"></i>';
+    item.onclick=function(){play(ch,idx);};
+    list.appendChild(item);
+  });
+}
+
+/* ============================================================
+   LECTURE
+   ============================================================ */
+function play(ch,idx){
+  curCh=ch;curIdx=idx;retries=0;
+  document.querySelectorAll('.gcard').forEach(function(c){c.classList.remove('active');});
+  document.querySelectorAll('.chitem').forEach(function(c){c.classList.remove('active');});
+  var card=document.querySelector('.gcard[data-idx="'+idx+'"]');
+  if(card) card.classList.add('active');
+  var item=document.querySelector('.chitem[data-chidx="'+idx+'"]');
+  if(item){item.classList.add('active');try{item.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(e){}}
+  document.getElementById('nowname').textContent=ch.name;
+  document.getElementById('nowgrp').textContent=ch.group;
+  document.getElementById('chcur').textContent=idx+1;
+  document.getElementById('chtot').textContent=filtered.length;
+  showPV();loadStream(ch.url);
+  showToast(xss(ch.name),ch.group);
+  setStatus('load',ch.name);setMn('home');closeSb();
+}
+
+function showPV(){
+  document.getElementById('gridview').classList.remove('show');
+  document.getElementById('playerview').classList.add('show');
+}
+function closePlayer(){
+  stopStream();
+  document.getElementById('playerview').classList.remove('show');
+  document.getElementById('gridview').classList.add('show');
+  setStatus('live',channels.length+' ch');
+}
+
+function loadStream(url){
+  curUrl=url;
+  var v=document.getElementById('vid');
+  showSpin();
+  document.getElementById('playerr').classList.remove('show');
+  document.getElementById('ppbtn').innerHTML='<i class="fa-solid fa-pause"></i>';
+  if(hlsObj){try{hlsObj.destroy();}catch(e){}hlsObj=null;}
+  v.pause();
+  // VIDAA fix: ne pas appeler v.load() sur src vide
+  try{v.removeAttribute('src');}catch(e){}
+  var isHls=/\.m3u8($|\?)|\/m3u8|m3u8/i.test(url);
+  var isVidaa=/VIDAA|Hisense|HiSmartTV/i.test(navigator.userAgent);
+  if(isVidaa){
+    // Sur VIDAA: native HLS en premier si supporte, sinon hls.js, sinon native direct
+    if(isHls&&v.canPlayType&&(v.canPlayType('application/vnd.apple.mpegurl')||v.canPlayType('application/x-mpegURL'))){
+      doNative(url,v);
+    } else if(isHls&&typeof Hls!=='undefined'&&Hls.isSupported&&Hls.isSupported()){
+      doHls(url,v);
+    } else {
+      doNative(url,v);
+    }
+  } else {
+    if(typeof Hls!=='undefined'&&Hls.isSupported&&Hls.isSupported()&&isHls) doHls(url,v);
+    else if(v.canPlayType&&(v.canPlayType('application/vnd.apple.mpegurl')||v.canPlayType('application/x-mpegURL'))&&isHls) doNative(url,v);
+    else doNative(url,v);
+  }
+}
+
+function doHls(url,v){
+  try{
+    hlsObj=new Hls({
+      enableWorker:false,
+      lowLatencyMode:false,
+      backBufferLength:10,
+      maxBufferLength:15,
+      maxMaxBufferLength:60,
+      fragLoadingTimeOut:30000,
+      manifestLoadingTimeOut:20000,
+      levelLoadingTimeOut:20000,
+      fragLoadingMaxRetry:4,
+      manifestLoadingMaxRetry:3,
+      startFragPrefetch:false,
+      xhrSetup:function(xhr){try{xhr.withCredentials=false;}catch(ex){}}
+    });
+    hlsObj.loadSource(url);
+    hlsObj.attachMedia(v);
+    hlsObj.once(Hls.Events.MANIFEST_PARSED,function(){
+      var p;try{p=v.play();}catch(ex){}
+      if(p&&p.then){
+        p.then(function(){hideSpin();setStatus('live',curCh?curCh.name:'');}).catch(function(){hideSpin();setTimeout(function(){try{v.play();}catch(ex){}},500);});
+      } else {hideSpin();setStatus('live',curCh?curCh.name:'');}
+    });
+    hlsObj.on(Hls.Events.ERROR,function(e,d){
+      if(!d.fatal) return;
+      if(d.type===Hls.ErrorTypes.NETWORK_ERROR&&retries<MAX_RETRY){
+        retries++;setTimeout(function(){if(hlsObj){try{hlsObj.startLoad();}catch(ex){doNative(url,v);}}},2000*retries);
+      } else if(d.type===Hls.ErrorTypes.MEDIA_ERROR&&retries<MAX_RETRY){
+        retries++;try{hlsObj.recoverMediaError();}catch(ex){doNative(url,v);}
+      } else {try{hlsObj.destroy();}catch(ex){}hlsObj=null;doNative(url,v);}
+    });
+  }catch(e){doNative(url,v);}
+}
+
+function doNative(url,v){
+  try{v.src=url;}catch(e){showErrP('Erreur lecture');return;}
+  try{v.load();}catch(e){}
+  var ok=false;
+  var errTimer=null;
+  function cleanup(){
+    v.removeEventListener('canplay',onCP);
+    v.removeEventListener('playing',onPL);
+    v.removeEventListener('loadeddata',onLD);
+    v.removeEventListener('error',onE);
+    if(errTimer){clearTimeout(errTimer);errTimer=null;}
+  }
+  function onCP(){if(ok)return;ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
+  function onPL(){if(ok)return;ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
+  function onLD(){if(ok)return;ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
+  function onE(){
+    if(ok)return;cleanup();
+    var msg='Flux inaccessible ou format non supporte';
+    try{if(v.error&&v.error.message)msg=v.error.message;}catch(ex){}
+    showErrP(msg);
+  }
+  v.addEventListener('canplay',onCP);
+  v.addEventListener('playing',onPL);
+  v.addEventListener('loadeddata',onLD);
+  v.addEventListener('error',onE);
+  var p;try{p=v.play();}catch(ex){}
+  if(p&&p.then){
+    p.then(function(){if(!ok){ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}}).catch(function(){});
+  }
+  // VIDAA: timeout securite 8s
+  errTimer=setTimeout(function(){
+    if(!ok){
+      if(v.readyState>=3){ok=true;cleanup();hideSpin();setStatus('live',curCh?curCh.name:'');}
+      else{cleanup();showErrP('Flux indisponible ou connexion trop lente');}
+    }
+  },8000);
+}
+
+function showSpin(){var s=document.getElementById('spinov');if(s)s.classList.add('show');}
+function hideSpin(){var s=document.getElementById('spinov');if(s)s.classList.remove('show');}
+function showErrP(msg){
+  hideSpin();
+  var pe=document.getElementById('playerr');if(pe)pe.classList.add('show');
+  var em=document.getElementById('errmsg');if(em)em.textContent=msg;
+  setStatus('err','Erreur flux');
+}
+function retryStream(){
+  if(!curCh)return;retries=0;
+  var pe=document.getElementById('playerr');if(pe)pe.classList.remove('show');
+  loadStream(curCh.url);
+}
+function stopStream(){
+  var v=document.getElementById('vid');
+  if(hlsObj){try{hlsObj.destroy();}catch(e){}hlsObj=null;}
+  try{v.pause();}catch(e){}
+  try{v.removeAttribute('src');v.load();}catch(e){}
+  hideSpin();
+  var pe=document.getElementById('playerr');if(pe)pe.classList.remove('show');
+}
+function togglePlay(){
+  var v=document.getElementById('vid'),b=document.getElementById('ppbtn');
+  if(v.paused){v.play().catch(function(){});b.innerHTML='<i class="fa-solid fa-pause"></i>';}
+  else{v.pause();b.innerHTML='<i class="fa-solid fa-play"></i>';}
+}
+function setVol(val){try{document.getElementById('vid').volume=parseFloat(val);}catch(e){}}
+function toggleFS(){
+  var w=document.getElementById('pwrap');
+  try{
+    if(!document.fullscreenElement){
+      if(w.requestFullscreen) w.requestFullscreen();
+      else if(w.webkitRequestFullscreen) w.webkitRequestFullscreen();
+      else if(w.mozRequestFullScreen) w.mozRequestFullScreen();
+    } else {
+      if(document.exitFullscreen) document.exitFullscreen();
+      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  }catch(e){}
+}
+function nextCh(){if(!filtered.length)return;var n=(curIdx+1)%filtered.length;play(filtered[n],n);}
+function prevCh(){if(!filtered.length)return;var p=(curIdx-1+filtered.length)%filtered.length;play(filtered[p],p);}
+
+/* ============================================================
+   RECHERCHE
+   ============================================================ */
+document.getElementById('chfilter').addEventListener('input',function(){
+  var q=this.value.toLowerCase();
+  var base=curGroup?(groups[curGroup]||[]):channels;
+  renderChList(q?base.filter(function(ch){return ch.name.toLowerCase().indexOf(q)>=0||ch.group.toLowerCase().indexOf(q)>=0;}):base);
+});
+document.getElementById('msearch').addEventListener('input',function(){
+  if(!channels.length)return;
+  var q=this.value.toLowerCase();
+  var base=curGroup?(groups[curGroup]||[]):channels;
+  var res=q?base.filter(function(ch){return ch.name.toLowerCase().indexOf(q)>=0||ch.group.toLowerCase().indexOf(q)>=0;}):base;
+  filtered=res;
+  renderGrid(res,q?'RÉSULTATS':(curGroup?curGroup.toUpperCase():'TOUTES LES'));
+  renderChList(res);
+  document.getElementById('gridmeta').textContent=res.length+' chaîne'+(res.length!==1?'s':'')+(q?' pour "'+q+'"':'');
+});
+
+/* ============================================================
+   COMMAND PALETTE
+   ============================================================ */
+function openCmd(){
+  if(!channels.length)return;
+  document.getElementById('cmdbg').classList.add('open');
+  var inp=document.getElementById('cmdinput');
+  inp.value='';try{inp.focus();}catch(e){}
+  cmdSel=0;buildCmd('');
+}
+function closeCmd(){document.getElementById('cmdbg').classList.remove('open');}
+document.getElementById('cmdinput').addEventListener('input',function(){cmdSel=0;buildCmd(this.value);});
+
+function buildCmd(q){
+  q=q.toLowerCase().trim();
+  cmdRes=q
+    ?channels.filter(function(ch){return ch.name.toLowerCase().indexOf(q)>=0||ch.group.toLowerCase().indexOf(q)>=0;}).slice(0,30)
+    :channels.slice(0,20);
+  renderCmdList();
+}
+function renderCmdList(){
+  var el=document.getElementById('cmdlist');
+  if(!cmdRes.length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:.82rem;"><i class="fa-solid fa-circle-xmark" style="display:block;font-size:1.3rem;margin-bottom:8px;"></i>Aucun résultat</div>';
+    return;
+  }
+  el.innerHTML='<div class="cmdsec"><i class="fa-solid fa-tv" style="margin-right:5px;"></i>Chaînes ('+cmdRes.length+')</div>'+
+    cmdRes.map(function(ch,i){
+      var logo=ch.logo?'<img src="'+xss(ch.logo)+'" onerror="this.style.display=\'none\'" alt="">':xss(ch.name.substring(0,4));
+      return '<div class="cmditem'+(i===cmdSel?' sel':'')+'" data-ci="'+i+'">'+
+        '<div class="cmdlogo">'+logo+'</div>'+
+        '<div><div class="cmdcn">'+xss(ch.name)+'</div><div class="cmdcg">'+xss(ch.group)+'</div></div></div>';
+    }).join('');
+  el.querySelectorAll('.cmditem').forEach(function(it,i){it.onclick=function(){launchCmd(i);};});
+  var sel=el.querySelector('.sel');if(sel)try{sel.scrollIntoView({block:'nearest'});}catch(e){}
+}
+function launchCmd(i){
+  var ch=cmdRes[i];if(!ch)return;
+  closeCmd();
+  var ri=-1;
+  for(var j=0;j<filtered.length;j++){if(filtered[j].id===ch.id){ri=j;break;}}
+  play(ch,ri>=0?ri:0);
+}
+document.getElementById('cmdinput').addEventListener('keydown',function(e){
+  if(e.key==='ArrowDown'){cmdSel=Math.min(cmdSel+1,cmdRes.length-1);renderCmdList();e.preventDefault();}
+  else if(e.key==='ArrowUp'){cmdSel=Math.max(cmdSel-1,0);renderCmdList();e.preventDefault();}
+  else if(e.key==='Enter') launchCmd(cmdSel);
+  else if(e.key==='Escape') closeCmd();
+});
+document.getElementById('cmdbg').addEventListener('click',function(e){
+  if(e.target===document.getElementById('cmdbg')) closeCmd();
+});
+document.addEventListener('keydown',function(e){
+  var tag=document.activeElement?document.activeElement.tagName:'';
+  var inInput=tag==='INPUT'||tag==='TEXTAREA';
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openCmd();return;}
+  if(inInput)return;
+  var inP=document.getElementById('playerview').classList.contains('show');
+  if(e.key==='Escape'){if(inP)closePlayer();else closeCmd();return;}
+  if(e.key==='ArrowRight'&&inP){nextCh();return;}
+  if(e.key==='ArrowLeft'&&inP){prevCh();return;}
+  if(e.key===' '&&inP){e.preventDefault();togglePlay();return;}
+  if((e.key==='f'||e.key==='F')&&inP){toggleFS();return;}
+  if(!e.ctrlKey&&!e.metaKey&&e.key>='1'&&e.key<='9'){
+    var idx=parseInt(e.key)-1;if(filtered[idx])play(filtered[idx],idx);
+  }
+});
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+function setView(mode,btn){
+  document.querySelectorAll('.vbtn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  var g=document.getElementById('chgrid');
+  if(mode==='list')g.classList.add('list');else g.classList.remove('list');
+}
+function switchTab(tab){
+  document.querySelectorAll('.sbtab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.sbpanel').forEach(function(p){p.classList.remove('active');});
+  document.getElementById(tab==='countries'?'tabC':'tabCh').classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+}
+function openSb(){document.getElementById('sidebar').classList.add('open');document.getElementById('sbov').classList.add('show');}
+function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbov').classList.remove('show');}
+function setMn(id){
+  document.querySelectorAll('.mnbtn').forEach(function(b){b.classList.remove('active');});
+  var el=document.getElementById('mn-'+id);if(el)el.classList.add('active');
+}
+function mnGo(target){
+  if(target==='home'){closeSb();setMn('home');}
+  else if(target==='pays'){switchTab('countries');openSb();setMn('pays');}
+  else if(target==='chaines'){switchTab('channels');openSb();setMn('chaines');}
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+var toastTmr;
+function showToast(title,sub){
+  var tt=document.getElementById('toastt');
+  var ts=document.getElementById('toasts');
+  var t=document.getElementById('toast');
+  if(tt)tt.innerHTML=title;
+  if(ts)ts.textContent=sub||'';
+  if(t){
+    t.classList.add('show');
+    clearTimeout(toastTmr);
+    toastTmr=setTimeout(function(){t.classList.remove('show');},3200);
+  }
+}
+</script>
+</body>
+</html>
