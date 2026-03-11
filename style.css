@@ -60,6 +60,7 @@ button { cursor:pointer; }
   gap:12px;
   flex-shrink:0;
   z-index:200;
+  position:relative;
   backdrop-filter:blur(12px);
   box-shadow:0 4px 24px rgba(0,0,0,.6);
 }
@@ -311,9 +312,6 @@ button { cursor:pointer; }
 
 .playerr { position:absolute; inset:0; background:rgba(8,8,14,.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:10; }
 .playerr.show { display:flex; }
-@media(max-width:768px){
-  .playerr { position:absolute; top:auto; bottom:0; left:0; right:0; inset:unset; border-radius:14px 14px 0 0; padding:28px 20px 24px; background:rgba(8,8,14,.98); box-shadow:0 -8px 40px rgba(0,0,0,.7); z-index:10; }
-}
 .errico   { width:64px; height:64px; background:rgba(229,9,20,.12); border:1px solid rgba(229,9,20,.25); border-radius:50%; display:flex; align-items:center; justify-content:center; }
 .errico i { font-size:1.6rem; color:var(--accent); }
 .errtitle { font-family:'Barlow Condensed', sans-serif; font-size:1rem; font-weight:700; color:var(--text); letter-spacing:1px; }
@@ -323,6 +321,10 @@ button { cursor:pointer; }
 
 .playerov { position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.2) 50%,transparent 100%); display:flex; flex-direction:column; justify-content:flex-end; padding:16px 20px 18px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:8; }
 .pwrap:hover .playerov { opacity:1; pointer-events:auto; }
+/* Sur Smart TV : toujours visible */
+@media(min-width:960px) and (hover:none) {
+  .pwrap .playerov { opacity:1; pointer-events:auto; }
+}
 .nowbadge { display:inline-flex; align-items:center; gap:5px; background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); border-radius:20px; padding:3px 9px; font-family:'Barlow Condensed', sans-serif; font-size:.63rem; font-weight:700; color:var(--green); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; width:fit-content; }
 .nowname { font-family:'Bebas Neue', sans-serif; font-size:clamp(1.2rem,3vw,1.8rem); letter-spacing:2px; line-height:1.1; margin-bottom:5px; text-shadow:0 2px 10px rgba(0,0,0,.8); }
 .nowgrp  { font-size:.72rem; color:var(--t2); margin-bottom:14px; font-family:'Barlow Condensed', sans-serif; letter-spacing:.5px; }
@@ -444,10 +446,31 @@ button { cursor:pointer; }
 .cmdcg { font-size:.63rem; color:var(--t3); margin-top:1px; }
 
 /* ============================================================
-   TOAST
+   TOAST — fixé en haut à droite sous le header
    ============================================================ */
-.toast { position:fixed; bottom:60px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--s2); border:1px solid var(--bd2); border-radius:var(--rl); padding:10px 16px; min-width:200px; max-width:90vw; box-shadow:0 8px 32px rgba(0,0,0,.5); z-index:700; opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; }
-.toast.show { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+.toast {
+  position:fixed;
+  top:calc(var(--hh) + 10px);
+  right:16px;
+  left:auto;
+  transform:translateY(-8px);
+  background:var(--s2);
+  border:1px solid var(--bd2);
+  border-radius:var(--rl);
+  padding:10px 16px;
+  min-width:200px;
+  max-width:320px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  z-index:700;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s, transform .25s;
+}
+.toast.show {
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}
 .toast-t { font-family:'Barlow Condensed', sans-serif; font-size:.8rem; font-weight:700; color:var(--text); letter-spacing:.5px; }
 .toast-s { font-size:.7rem; color:var(--t2); margin-top:2px; }
 
@@ -465,7 +488,7 @@ button { cursor:pointer; }
 /* ============================================================
    MOBILE NAV
    ============================================================ */
-.mobilenav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--mnh);background:rgba(10,10,16,.98);border-top:1px solid var(--bd);backdrop-filter:blur(16px);z-index:400;padding:0 4px;}
+.mobilenav { display:none; position:fixed; bottom:0; left:0; right:0; height:var(--mnh); background:rgba(10,10,16,.98); border-top:1px solid var(--bd); backdrop-filter:blur(16px); z-index:400; padding:0 4px; }
 .mnav-inner { display:flex; align-items:stretch; height:100%; }
 .mnbtn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; background:none; border:none; color:var(--t3); font-size:.55rem; font-family:'Barlow Condensed', sans-serif; font-weight:700; letter-spacing:.5px; text-transform:uppercase; transition:color .15s; }
 .mnbtn i { font-size:.95rem; transition:color .15s; }
@@ -476,18 +499,82 @@ button { cursor:pointer; }
 .sbov.show { display:block; }
 
 /* ============================================================
-   RESPONSIVE
+   RESPONSIVE — Mobile < 768px
    ============================================================ */
-@media(max-width:768px){
+@media(max-width:768px) {
   .app { padding-bottom:var(--mnh); }
   .footer { display:none; }
-  .mobilenav{display:block;}
+  .mobilenav { display:block; }
   .sidebar { position:fixed; left:0; top:var(--hh); bottom:var(--mnh); z-index:100; transform:translateX(-100%); width:min(var(--sw), 85vw); }
   .sidebar.open { transform:translateX(0); box-shadow:4px 0 24px rgba(0,0,0,.6); }
   .hbtn.desktop-only, .sbadge { display:none; }
   .logo { font-size:1.45rem; }
+  .toast { top:calc(var(--hh) + 8px); right:10px; max-width:calc(100vw - 20px); }
+  .playerr { position:absolute; top:auto; bottom:0; left:0; right:0; inset:unset; border-radius:14px 14px 0 0; padding:28px 20px 24px; background:rgba(8,8,14,.98); box-shadow:0 -8px 40px rgba(0,0,0,.7); z-index:10; }
 }
-@media(min-width:769px){
+
+/* ============================================================
+   SMART TV — 960px+ sans pointeur souris (VIDAA / Tizen / WebOS)
+   ============================================================ */
+@media(min-width:769px) {
   .sbov { display:none !important; }
   .sidebar { transform:none !important; }
+}
+
+@media(min-width:960px) {
+  :root {
+    --sw: 300px;
+    --hh: 64px;
+    --fh: 52px;
+    --r:  10px;
+    --rl: 14px;
+  }
+
+  /* Header plus grand */
+  .logo { font-size:2rem; letter-spacing:4px; }
+  .hbtn { padding:8px 14px; font-size:.8rem; }
+  .sbadge { font-size:.78rem; padding:5px 13px; }
+
+  /* Sidebar plus large */
+  .sbtab { font-size:.75rem; padding:9px 8px; }
+  .country-btn { padding:9px 12px; }
+  .country-label { font-size:.85rem; }
+  .citem { padding:10px 12px; }
+  .cname { font-size:.88rem; }
+  .chitem { padding:9px 12px; }
+  .chn { font-size:.85rem; }
+  .chlogo { width:38px; height:38px; }
+
+  /* Grille — cartes plus grandes */
+  .chgrid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
+  .cardname { font-size:.82rem; }
+  .gridttl { font-size:1.8rem; }
+
+  /* Player controls plus grands — faciles à cliquer avec télécommande */
+  .cbtn { width:44px; height:44px; font-size:1rem; }
+  .cbtn.big { width:58px; height:58px; font-size:1.2rem; }
+  .navbtn { padding:9px 18px; font-size:.85rem; }
+  .closebtn { padding:9px 16px; font-size:.85rem; }
+  .pbar { padding:12px 18px; gap:10px; }
+  .volgrp input[type=range] { width:100px; }
+  .nowname { font-size:clamp(1.4rem,3.5vw,2.2rem); }
+
+  /* Toast position */
+  .toast { top:calc(var(--hh) + 12px); right:20px; min-width:220px; }
+
+  /* Footer links plus lisibles */
+  .footlink { font-size:.8rem; }
+  .footcopy { font-size:.75rem; }
+}
+
+/* Smart TV très large (1920px — Full HD) */
+@media(min-width:1280px) {
+  :root {
+    --sw: 320px;
+    --hh: 68px;
+  }
+
+  .chgrid { grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:16px; }
+  .cbtn { width:48px; height:48px; font-size:1.1rem; }
+  .cbtn.big { width:64px; height:64px; font-size:1.3rem; }
 }
