@@ -109,15 +109,37 @@ app.post('/api/xtream', async (req, res) => {
     const streamsResp = await axios.get(`${apiBase}&action=get_live_streams`, { timeout: 25000 });
     const rawStreams = Array.isArray(streamsResp.data) ? streamsResp.data : [];
 
-    const channels = rawStreams.slice(0, 500).map((s, idx) => ({
-      id: idx,
-      name: s.name,
-      url: `${host}/live/${username}/${password}/${s.stream_id}.ts`,
-      logo: s.stream_icon || '',
-      group: 'Live'
-    }));
+    let catMap = {};
+    try {
+      const catResp = await axios.get(`${apiBase}&action=get_live_categories`, { timeout: 10000 });
+      if (Array.isArray(catResp.data)) {
+        catResp.data.forEach(cat => { catMap[cat.category_id] = cat.category_name; });
+      }
+    } catch(e) {}
 
-    res.json({ ok: true, channels });
+    const channels = rawStreams.slice(0, 2000).map((s, idx) => {
+      const sid = s.stream_id;
+
+      const urlM3u8 = `${host}/live/${username}/${password}/${sid}.m3u8`;
+      const urlTs   = `${host}/live/${username}/${password}/${sid}.ts`;
+      const group = catMap[s.category_id] || 'Live';
+      return {
+        id: idx,
+        name: s.name || ('Ch. ' + (idx+1)),
+        url: urlM3u8,
+        urlFallback: urlTs,
+        logo: s.stream_icon || '',
+        group: group
+      };
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, channels, serverInfo: {
+      expirationDate: infoResp.data.user_info.exp_date
+        ? new Date(parseInt(infoResp.data.user_info.exp_date)*1000).toLocaleDateString('fr-FR')
+        : null,
+      maxConnections: infoResp.data.user_info.max_connections
+    }});
   } catch (err) {
     res.status(502).json({ ok: false, error: err.message });
   }
