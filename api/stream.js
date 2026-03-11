@@ -3,6 +3,9 @@ const axios = require("axios");
 
 module.exports = async function handler(req, res) {
 
+  // ========================
+  // CORS
+  // ========================
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
@@ -10,7 +13,10 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const { url } = req.query;
-  if (!url) return res.status(400).json({ error: "Paramètre url manquant" });
+
+  if (!url) {
+    return res.status(400).json({ error: "Paramètre url manquant" });
+  }
 
   let targetUrl;
 
@@ -32,13 +38,18 @@ module.exports = async function handler(req, res) {
 
   try {
 
+    // ========================
+    // REQUEST STREAM
+    // ========================
     const headers = {
       "User-Agent": "Mozilla/5.0",
       Accept: "*/*",
       Connection: "keep-alive",
     };
 
-    if (req.headers.range) headers["Range"] = req.headers.range;
+    if (req.headers.range) {
+      headers["Range"] = req.headers.range;
+    }
 
     const response = await axios({
       method: "GET",
@@ -47,68 +58,106 @@ module.exports = async function handler(req, res) {
       timeout: 30000,
       headers,
       maxRedirects: 5,
+      validateStatus: () => true
     });
 
-    const type = response.headers["content-type"] || "";
+    const contentType = response.headers["content-type"] || "";
 
-    // ==========================
-    // CAS M3U8
-    // ==========================
-    if (type.includes("mpegurl") || targetUrl.includes(".m3u8")) {
+    // ========================
+    // CAS PLAYLIST M3U8
+    // ========================
+    if (
+      contentType.includes("mpegurl") ||
+      targetUrl.includes(".m3u8")
+    ) {
 
-      const playlist = await axios.get(targetUrl, { timeout: 30000 });
-      let body = playlist.data;
+      const playlistResponse = await axios.get(targetUrl, {
+        timeout: 30000,
+        headers
+      });
 
-      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
+      let body = playlistResponse.data;
+
+      const baseUrl =
+        targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
 
       body = body
         .split("\n")
         .map((line) => {
+
+          line = line.trim();
+
           if (!line || line.startsWith("#")) return line;
 
-          let absolute;
+          let absoluteUrl;
 
           if (line.startsWith("http")) {
-            absolute = line;
+            absoluteUrl = line;
           } else {
-            absolute = baseUrl + line;
+            absoluteUrl = baseUrl + line;
           }
 
-          return `${BASE}/api/stream?url=${encodeURIComponent(absolute)}`;
+          return `${BASE}/api/stream?url=${encodeURIComponent(absoluteUrl)}`;
         })
         .join("\n");
 
-      res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.apple.mpegurl"
+      );
+
       res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Access-Control-Allow-Origin", "*");
 
       return res.status(200).send(body);
     }
 
-    // ==========================
-    // CAS STREAM TS NORMAL
-    // ==========================
+    // ========================
+    // CAS SEGMENT VIDEO (.ts .m4s .aac)
+    // ========================
+
     res.status(response.status || 200);
 
     if (response.headers["content-type"]) {
-      res.setHeader("Content-Type", response.headers["content-type"]);
+      res.setHeader(
+        "Content-Type",
+        response.headers["content-type"]
+      );
     } else {
-      res.setHeader("Content-Type", "video/mp2t");
+
+      if (targetUrl.includes(".ts")) {
+        res.setHeader("Content-Type", "video/mp2t");
+      } else if (targetUrl.includes(".m4s")) {
+        res.setHeader("Content-Type", "video/iso.segment");
+      } else {
+        res.setHeader("Content-Type", "application/octet-stream");
+      }
+
     }
 
     if (response.headers["content-length"]) {
-      res.setHeader("Content-Length", response.headers["content-length"]);
+      res.setHeader(
+        "Content-Length",
+        response.headers["content-length"]
+      );
     }
 
     if (response.headers["accept-ranges"]) {
-      res.setHeader("Accept-Ranges", response.headers["accept-ranges"]);
+      res.setHeader(
+        "Accept-Ranges",
+        response.headers["accept-ranges"]
+      );
     }
 
     res.setHeader("Cache-Control", "no-cache");
 
+    // STREAM DIRECT
     response.data.pipe(res);
 
     response.data.on("error", () => {
-      if (!res.headersSent) res.status(502).end();
+      if (!res.headersSent) {
+        res.status(502).end();
+      }
     });
 
     req.on("close", () => {
@@ -116,9 +165,14 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("Proxy error:", err.message);
 
-    if (!res.headersSent)
-      res.status(502).json({ error: "Impossible de récupérer le stream" });
+    console.error("Proxy stream error:", err.message);
+
+    if (!res.headersSent) {
+      res.status(502).json({
+        error: "Impossible de récupérer le stream"
+      });
+    }
+
   }
 };
