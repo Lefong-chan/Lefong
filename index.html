@@ -652,8 +652,6 @@ async function fetchDefaultSources() {
   
   welcomeScr.style.display = 'none';
   
-  showLoading('Mifandray amin\'ny API...');
-  
   try {
     const response = await fetch(API_SOURCES_URL);
     if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
