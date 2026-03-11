@@ -1,4 +1,4 @@
-// api/proxy.js — M3U Proxy Backend
+// api/proxy.js — M3U Proxy
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const text = await response.text();
     
     if (!text.trim().startsWith('#EXTM3U')) {
-      return res.status(422).json({ error: 'Le fichier récupéré n\'est pas un M3U valide.' });
+      return res.status(422).json({ error: "Le fichier récupéré n'est pas un M3U valide." });
     }
     
     const channels = parseM3U(text);
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     
   } catch (err) {
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      return res.status(504).json({ error: 'Délai dépassé : l\'URL M3U n\'a pas répondu (20s).' });
+      return res.status(504).json({ error: "Délai dépassé : l'URL M3U n'a pas répondu (20s)." });
     }
     return res.status(500).json({ error: 'Erreur serveur : ' + err.message });
   }
