@@ -383,13 +383,15 @@ function loadCustomSource(id) {
   renderSrcList();
 
   if (s.type === 'file-content' && s.data) {
-    showLoading('Analyse ' + s.name + '...');
+    var loader = document.getElementById('loadscr');
+    if(loader.style.display !== 'flex') {
+        showLoading('Analyse ' + s.name + '...');
+    }
+    
     setTimeout(function () {
       var chs = parseM3ULocal(s.data);
       applyChannels(chs, s.name);
     }, 100);
-  } else {
-    showToast('<i class="fa-solid fa-info-circle"></i> Source URL', 'Ity version ity dia mampiasa fichier local ihany aloa.');
   }
 }
 
@@ -683,6 +685,8 @@ async function fetchDefaultSources() {
 
 async function loadM3USource(source) {
   curSrcId = 'api_' + source.id;
+  
+  // Asehoy ny loading
   showLoading('Chargement des chaînes...');
   
   try {
@@ -692,9 +696,10 @@ async function loadM3USource(source) {
     const m3uText = await response.text();
     const chs = parseM3ULocal(m3uText);
     
+    // Antsoy ny applyChannels (izay efa misy .style.display = 'none' ao anatiny)
     applyChannels(chs, source.name);
     
-    // Eto no fanitsiana: tsy hideLoading() fa ovaina ny style-n'ny loadscr
+    // Ataovy azo antoka fa mihidy ny loading eto
     document.getElementById('loadscr').style.display = 'none';
 
     document.querySelectorAll('.country-btn').forEach(btn => {
@@ -703,12 +708,10 @@ async function loadM3USource(source) {
 
   } catch (err) {
     console.error("Fahadisoana:", err);
-    document.getElementById('loadscr').style.display = 'none'; // Eto koa
+    document.getElementById('loadscr').style.display = 'none'; 
     setStatus('err', 'Erreur M3U');
-    showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur', 'Tsy azo vakiana ny URL M3U.');
   }
 }
-
 
 function renderCountryMenu(apiSources) {
   const el = document.getElementById('countryMenu');
