@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>IPTV Player</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo">IPTV<b>+</b></div>
+  <div class="hsrch">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <input type="text" id="msearch" placeholder="Rechercher une chaîne... (Ctrl+K)">
+  </div>
+  <div class="hright">
+    <div class="sbadge">
+      <div class="sdot load" id="sdot"></div>
+      <span id="stxt">Connexion API...</span>
+    </div>
+    <button class="hbtn desktop-only" onclick="openCmd()">
+      <i class="fa-solid fa-magnifying-glass"></i> Recherche rapide <kbd>Ctrl+K</kbd>
+    </button>
+    <button class="hbtn red" onclick="openModal()">
+      <i class="fa-solid fa-plus"></i> Source
+    </button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sbov" id="sbov" onclick="closeSb()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sbhdr">
+      <div class="sbhdr-label">Bibliothèque</div>
+      <div class="sbtabs">
+        <button class="sbtab active" id="tabC" onclick="switchTab('countries')">
+          <i class="fa-solid fa-earth-europe"></i> Sources
+        </button>
+        <button class="sbtab" id="tabCh" onclick="switchTab('channels')">
+          <i class="fa-solid fa-list"></i> Chaînes
+        </button>
+      </div>
+    </div>
+
+    <!-- PANEL: Sources / Pays -->
+    <div class="sbpanel active" id="panel-countries">
+
+      <!-- Sources list -->
+      <div class="src-list">
+        <div class="src-list-title">
+          <span><i class="fa-solid fa-satellite-dish" style="margin-right:5px;color:var(--accent)"></i>Sources IPTV</span>
+        </div>
+        <div id="srcItems"></div>
+        <button class="add-src-btn" onclick="openModal()">
+          <i class="fa-solid fa-plus"></i> Ajouter une source
+        </button>
+      </div>
+
+      <!-- Groupes de chaînes -->
+      <div class="country-menu">
+        <div class="country-menu-title">
+          <i class="fa-solid fa-earth-europe"></i>
+          Sources par défaut
+        </div>
+        <div class="country-btns" id="countryMenu"></div>
+      </div>
+
+      <!-- Groups -->
+      <div class="clist" id="clist"></div>
+
+    </div>
+
+    <!-- PANEL: Chaînes -->
+    <div class="sbpanel" id="panel-channels">
+      <div class="chpaneltop">
+        <div class="chpnav">
+          <div class="chpname" id="chpname">Toutes les chaînes</div>
+          <button class="backbtn" onclick="filterGroup(null); switchTab('countries');">
+            <i class="fa-solid fa-arrow-left"></i> Retour
+          </button>
+        </div>
+        <div class="chfw">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input class="chfinput" id="chfilter" type="text" placeholder="Filtrer chaînes...">
+        </div>
+      </div>
+      <div class="chlist" id="chlist"></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Welcome -->
+    <div class="welcome" id="welcomeScr" style="display:none;">
+      <div class="welcome-logo">IPTV</div>
+      <div class="welcome-sub">Sélectionnez une source dans la barre de gauche ou ajoutez une nouvelle source.</div>
+      <div class="welcome-cards">
+        <div class="wcard" onclick="openModal('url')">
+          <div class="wcard-icon m3u"><i class="fa-solid fa-link"></i></div>
+          <div class="wcard-title">M3U URL</div>
+          <div class="wcard-desc">Lien direct vers une playlist M3U</div>
+        </div>
+        <div class="wcard" onclick="openModal('xtream')">
+          <div class="wcard-icon xtream"><i class="fa-solid fa-server"></i></div>
+          <div class="wcard-title">Xtream Codes</div>
+          <div class="wcard-desc">Serveur IPTV avec login/pass</div>
+        </div>
+        <div class="wcard" onclick="openModal('file')">
+          <div class="wcard-icon file"><i class="fa-solid fa-file-import"></i></div>
+          <div class="wcard-title">Fichier M3U</div>
+          <div class="wcard-desc">Importer un fichier local</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loadscr" id="loadscr" style="display:none;">
+      <div class="loadlogo">IPTV</div>
+      <div class="loadsub">
+        <i class="fa-solid fa-circle-notch fa-spin" style="margin-right:7px;"></i>
+        <span id="loadtxt">Chargement...</span>
+      </div>
+      <div class="loadprog"><div class="loadbar"></div></div>
+    </div>
+
+    <!-- Grid -->
+    <div class="gridview" id="gridview">
+      <div class="gridtop">
+        <div>
+          <div class="gridttl" id="gridttl">TOUTES LES <span>CHAÎNES</span></div>
+          <div class="gridmeta" id="gridmeta"></div>
+        </div>
+        <div class="vtoggle">
+          <button class="vbtn active" onclick="setView('grid',this)"><i class="fa-solid fa-grip"></i></button>
+          <button class="vbtn" onclick="setView('list',this)"><i class="fa-solid fa-list"></i></button>
+        </div>
+      </div>
+      <div class="chgrid" id="chgrid"></div>
+    </div>
+
+    <!-- Player -->
+    <div class="playerview" id="playerview">
+      <div class="pwrap" id="pwrap">
+        <video id="vid" playsinline></video>
+        <div class="spinov" id="spinov"><div class="spin"></div></div>
+        <div class="playerr" id="playerr">
+          <div class="errico"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="errtitle">FLUX INDISPONIBLE</div>
+          <div class="errmsg" id="errmsg">Impossible de lire cette chaîne.</div>
+          <button class="retrybtn" onclick="retryStream()">
+            <i class="fa-solid fa-rotate-right"></i> Réessayer
+          </button>
+        </div>
+        <div class="playerov">
+          <div class="nowbadge"><i class="fa-solid fa-circle" style="font-size:.4rem;"></i> En direct</div>
+          <div class="nowname" id="nowname">--</div>
+          <div class="nowgrp"  id="nowgrp"></div>
+          <div class="ctrlrow">
+            <button class="cbtn" onclick="prevCh()"><i class="fa-solid fa-backward-step"></i></button>
+            <button class="cbtn big" id="ppbtn" onclick="togglePlay()"><i class="fa-solid fa-pause"></i></button>
+            <button class="cbtn" onclick="nextCh()"><i class="fa-solid fa-forward-step"></i></button>
+            <button class="cbtn" onclick="stopStream()"><i class="fa-solid fa-stop"></i></button>
+            <div class="volgrp">
+              <i class="fa-solid fa-volume-high"></i>
+              <input type="range" id="volr" min="0" max="1" step="0.05" value="1" oninput="setVol(this.value)">
+            </div>
+            <button class="fsbtn" onclick="toggleFS()"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="pbar">
+        <button class="navbtn" onclick="prevCh()"><i class="fa-solid fa-chevron-left"></i> Préc.</button>
+        <button class="navbtn" onclick="nextCh()">Suiv. <i class="fa-solid fa-chevron-right"></i></button>
+        <div class="chctr">Ch. <span id="chcur">--</span> / <span id="chtot">--</span></div>
+        <button class="closebtn" onclick="closePlayer()"><i class="fa-solid fa-xmark"></i> Fermer</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footbrand">IPTV+</div>
+  <div class="footlinks">
+    <a class="footlink" href="tel:+261331926914"><i class="fa-solid fa-phone"></i> +261 33 192 6914</a>
+    <a class="footlink" href="https://facebook.com" target="_blank" rel="noopener"><i class="fa-brands fa-facebook"></i> Le Fong 🟢</a>
+  </div>
+  <div class="footcopy">&copy; 2026 IPTV+</div>
+</footer>
+
+<!-- MOBILE NAV -->
+<nav class="mobilenav">
+  <div class="mnav-inner">
+    <button class="mnbtn active" id="mn-home"    onclick="mnGo('home',this)"><i class="fa-solid fa-house"></i><span>Accueil</span></button>
+    <button class="mnbtn"        id="mn-pays"    onclick="mnGo('pays',this)"><i class="fa-solid fa-earth-americas"></i><span>Sources</span></button>
+    <button class="mnbtn center-btn"             onclick="openModal()"><i class="fa-solid fa-plus"></i><span>Source</span></button>
+    <button class="mnbtn"        id="mn-search"  onclick="openCmd()"><i class="fa-solid fa-magnifying-glass"></i><span>Chercher</span></button>
+    <button class="mnbtn"        id="mn-chaines" onclick="mnGo('chaines',this)"><i class="fa-solid fa-list"></i><span>Chaînes</span></button>
+  </div>
+</nav>
+
+<!-- COMMAND PALETTE -->
+<div class="cmdbg" id="cmdbg">
+  <div class="cmdbox">
+    <div class="cmdhead">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="cmdinput" placeholder="Rechercher une chaîne...">
+      <span class="cmdesc"><kbd>↑↓</kbd> Naviguer &nbsp; <kbd>↵</kbd> Lancer &nbsp; <kbd>Esc</kbd> Fermer</span>
+    </div>
+    <div class="cmdlist" id="cmdlist"></div>
+  </div>
+</div>
+
+<!-- MODAL AJOUTER SOURCE -->
+<div class="modalbg" id="srcModal">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mtitle">AJOUTER UNE SOURCE</div>
+      <button class="mclose" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody" id="modalBody">
+
+      <!-- Sélecteur de type -->
+      <div class="src-type-tabs">
+        <button class="src-type-btn selected" id="typeBtn-url" onclick="selectSrcType('url',this)">
+          <i class="fa-solid fa-link"></i><span>M3U URL</span>
+        </button>
+        <button class="src-type-btn" id="typeBtn-xtream" onclick="selectSrcType('xtream',this)">
+          <i class="fa-solid fa-server"></i><span>Xtream</span>
+        </button>
+        <button class="src-type-btn" id="typeBtn-file" onclick="selectSrcType('file',this)">
+          <i class="fa-solid fa-file-import"></i><span>Fichier</span>
+        </button>
+      </div>
+
+      <!-- Nom commun -->
+      <div class="fgroup">
+        <label class="flabel">Nom de la source</label>
+        <input class="finput" id="srcName" type="text" placeholder="Ex: Ma chaîne française">
+      </div>
+
+      <!-- Panel M3U URL -->
+      <div class="type-panel active" id="panel-url">
+        <div class="fgroup">
+          <label class="flabel">URL M3U / M3U8</label>
+          <input class="finput" id="m3uUrl" type="url" placeholder="https://exemple.com/playlist.m3u">
+        </div>
+      </div>
+
+      <!-- Panel Xtream Codes -->
+      <div class="type-panel" id="panel-xtream">
+        <div class="xt-info">
+          <b>Xtream Codes</b> — L'API contacte directement votre serveur avec vos identifiants et charge toutes les chaînes live disponibles.
+        </div>
+        <div class="fgroup">
+          <label class="flabel">URL du serveur</label>
+          <input class="finput" id="xtHost" type="url" placeholder="http://votre-serveur.com:8080">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Nom d'utilisateur</label>
+          <input class="finput" id="xtUser" type="text" placeholder="username">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Mot de passe</label>
+          <input class="finput" id="xtPass" type="password" placeholder="password">
+        </div>
+        <div id="xtServerInfo" style="display:none;"></div>
+      </div>
+
+      <!-- Panel Fichier -->
+      <div class="type-panel" id="panel-file">
+        <div class="fgroup">
+          <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Glissez un fichier <strong>.m3u</strong> ou <strong>.m3u8</strong> ici</p>
+            <p style="font-size:.68rem;">ou cliquez pour sélectionner</p>
+          </div>
+          <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt" style="display:none;">
+          <div class="file-name" id="fileName">
+            <i class="fa-solid fa-file-lines"></i>
+            <span id="fileNameTxt"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="mfoot">
+      <button class="mbtn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="mbtn-add" id="addSrcBtn" onclick="addSource()">
+        <i class="fa-solid fa-plus"></i> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-t" id="toastt"></div>
+  <div class="toast-s" id="toasts"></div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — logique frontend
+     ============================================================ -->
+<script>
+/* ============================================================
+   ÉTAT GLOBAL (FRONTEND ONLY)
+   ============================================================ */
+var channels = [], filtered = [], groups = {};
+var curCh = null, curIdx = -1, curGroup = null;
+var hlsObj = null, curUrl = '', retries = 0;
+var MAX_RETRY = 3;
+var cmdRes = [], cmdSel = 0;
+var sources = []; 
+var curSrcId = null;
+var modalSrcType = 'url';
+var pendingFileData = null;
+
+/* ============================================================
+   INITIALISATION
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', function () {
+  loadLocalSources();
+  // Asehoy ny welcome screen satria tsy misy backend hiankinana intsony
+  document.getElementById('welcomeScr').style.display = 'flex';
+  setStatus('live', 'Mode Offline / Local');
+});
+
+/* Charger ny sources avy amin'ny localStorage fotsiny */
+function loadLocalSources() {
+  try { 
+    sources = JSON.parse(localStorage.getItem('iptv_custom_sources') || '[]'); 
+  } catch (e) { 
+    sources = []; 
+  }
+  renderSrcList();
+}
+
+/* ============================================================
+   FITANTANANA SOURCES (LOCAL STORAGE)
+   ============================================================ */
+function saveLocalSources() {
+  var toSave = sources.map(function (s) {
+    return { id: s.id, name: s.name, type: s.type, data: s.data, url: s.url, chCount: s.chCount || 0 };
+  });
+  try { localStorage.setItem('iptv_custom_sources', JSON.stringify(toSave)); } catch (e) {}
+}
+
+function renderSrcList() {
+  var el = document.getElementById('srcItems');
+  if (!el) return;
+  if (!sources.length) {
+    el.innerHTML = '<div style="text-align:center;padding:10px 4px;color:var(--t3);font-size:.75rem;"><i class="fa-solid fa-satellite-dish" style="display:block;font-size:1.1rem;margin-bottom:6px;color:var(--accent);"></i>Aucune source</div>';
+    return;
+  }
+  var icons = { url: 'fa-solid fa-link', 'file-content': 'fa-solid fa-file-lines', xtream: 'fa-solid fa-server' };
+  el.innerHTML = sources.map(function (s) {
+    var ico = icons[s.type] || 'fa-solid fa-tv';
+    return '<div class="src-item' + (curSrcId === s.id ? ' active' : '') + '" onclick="loadCustomSource(\'' + s.id + '\')">' +
+      '<div class="src-icon"><i class="' + ico + '"></i></div>' +
+      '<div style="flex:1;min-width:0;"><div class="src-name">' + xss(s.name) + '</div>' +
+      '<div class="src-meta">' + (s.chCount ? s.chCount + ' ch.' : s.type.toUpperCase()) + '</div></div>' +
+      '<button class="src-del" onclick="delSource(event,\'' + s.id + '\')"><i class="fa-solid fa-trash"></i></button></div>';
+  }).join('');
+}
+
+function loadCustomSource(id) {
+  var s = sources.find(function (x) { return x.id === id; });
+  if (!s) return;
+  curSrcId = id;
+  renderSrcList();
+
+  if (s.type === 'file-content' && s.data) {
+    showLoading('Analyse ' + s.name + '...');
+    setTimeout(function () {
+      var chs = parseM3ULocal(s.data);
+      applyChannels(chs, s.name);
+    }, 100);
+  } else {
+    showToast('<i class="fa-solid fa-info-circle"></i> Source URL', 'Ity version ity dia mampiasa fichier local ihany aloa.');
+  }
+}
+
+function delSource(e, id) {
+  e.stopPropagation();
+  if (!confirm('Supprimer cette source ?')) return;
+  sources = sources.filter(function (s) { return s.id !== id; });
+  saveLocalSources(); 
+  renderSrcList();
+  if (curSrcId === id) {
+    location.reload(); // Refresh tsotra raha vao voafafa ny source ampiasaina
+  }
+}
+
+/* ============================================================
+   MODAL & INTERACTION
+   ============================================================ */
+function openModal(type) {
+  document.getElementById('srcModal').classList.add('open');
+  if (type) selectSrcType(type, document.getElementById('typeBtn-' + type));
+}
+
+function closeModal() {
+  document.getElementById('srcModal').classList.remove('open');
+}
+
+function selectSrcType(type, btnEl) {
+  modalSrcType = type;
+  document.querySelectorAll('.src-type-btn').forEach(function (b) { b.classList.remove('selected'); });
+  if (btnEl) btnEl.classList.add('selected');
+  ['url', 'xtream', 'file'].forEach(function (t) { 
+     document.getElementById('panel-' + t).classList.remove('active'); 
+  });
+  document.getElementById('panel-' + type).classList.add('active');
+}
+
+// Fitantanana Drag & Drop amin'ny browser fotsiny
+document.getElementById('fileDrop').addEventListener('dragover', function (e) { e.preventDefault(); this.classList.add('dragover'); });
+document.getElementById('fileDrop').addEventListener('dragleave', function () { this.classList.remove('dragover'); });
+document.getElementById('fileDrop').addEventListener('drop', function (e) {
+  e.preventDefault(); this.classList.remove('dragover');
+  var file = e.dataTransfer.files[0]; if (file) readFile(file);
+});
+document.getElementById('fileInput').addEventListener('change', function (e) { if (e.target.files[0]) readFile(e.target.files[0]); });
+
+function readFile(file) {
+  document.getElementById('fileNameTxt').textContent = file.name;
+  document.getElementById('fileName').classList.add('show');
+  if (!document.getElementById('srcName').value)
+    document.getElementById('srcName').value = file.name.replace(/\.(m3u8?|txt)$/i, '');
+  var reader = new FileReader();
+  reader.onload = function (e) { pendingFileData = e.target.result; };
+  reader.readAsText(file);
+}
+
+function addSource() {
+  var name = document.getElementById('srcName').value.trim() || 'Ma Source';
+  
+  if (modalSrcType === 'file') {
+    if (!pendingFileData) { alert('Mifidiana fichier m3u aloha'); return; }
+    var chs = parseM3ULocal(pendingFileData);
+    var s = { 
+      id: 'src_' + Date.now(), 
+      name: name, 
+      type: 'file-content', 
+      data: pendingFileData, 
+      chCount: chs.length 
+    };
+    sources.push(s);
+    saveLocalSources();
+    renderSrcList();
+    closeModal();
+    loadCustomSource(s.id);
+  } else {
+    alert('Ity version ity dia natao ho an\'ny fichier M3U (Local) ihany aloa.');
+  }
+}
+
+/* ============================================================
+   PARSEUR M3U (JAVASCRIPT PURE)
+   ============================================================ */
+function parseM3ULocal(txt) {
+  var lines = txt.split(/\r?\n/); 
+  var chs = []; 
+  var cur = null;
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i].trim();
+    if (l.indexOf('#EXTINF') === 0) {
+      cur = { id: chs.length, name: 'Sans nom', url: '', logo: '', group: 'Divers' };
+      var nm = l.match(/,(.+)$/); if (nm) cur.name = nm[1].trim();
+      var lg = l.match(/tvg-logo="([^"]*)"/i); if (lg && lg[1].trim()) cur.logo = lg[1].trim();
+      var gr = l.match(/group-title="([^"]*)"/i); if (gr && gr[1].trim()) cur.group = gr[1].trim();
+    } else if (l && l.indexOf('#') !== 0 && cur) {
+      cur.url = l;
+      chs.push(cur);
+      cur = null;
+    }
+  }
+  return chs;
+}
+
+/* ============================================================
+   UI RENDER (GRILLE & LISTE)
+   ============================================================ */
+function applyChannels(chs, displayName) {
+  channels = chs;
+  groups = {};
+  chs.forEach(function(ch) {
+    if(!groups[ch.group]) groups[ch.group] = [];
+    groups[ch.group].push(ch);
+  });
+  
+  filtered = chs.slice();
+  renderCountries();
+  renderGrid(chs, 'TOUTES LES');
+  renderChList(chs);
+  
+  document.getElementById('loadscr').style.display = 'none';
+  document.getElementById('gridview').classList.add('show');
+  document.getElementById('welcomeScr').style.display = 'none';
+  setStatus('live', chs.length + ' chaînes');
+}
+
+function renderCountries() {
+  var list = document.getElementById('clist');
+  list.innerHTML = '';
+  
+  // "Toutes les chaînes" button
+  var allEl = document.createElement('div');
+  allEl.className = 'citem' + (curGroup === null ? ' active' : '');
+  allEl.innerHTML = '<i class="fa-solid fa-globe cico"></i><span class="cname">Toutes</span><span class="ccnt">' + channels.length + '</span>';
+  allEl.onclick = function () { filterGroup(null); };
+  list.appendChild(allEl);
+
+  Object.keys(groups).sort().forEach(function (g) {
+    var el = document.createElement('div');
+    el.className = 'citem' + (curGroup === g ? ' active' : '');
+    el.innerHTML = '<i class="fa-solid fa-tv cico"></i><span class="cname">' + xss(g) + '</span><span class="ccnt">' + groups[g].length + '</span>';
+    el.onclick = function () { filterGroup(g); };
+    list.appendChild(el);
+  });
+}
+
+function filterGroup(g) {
+  curGroup = g;
+  filtered = g ? groups[g] : channels;
+  renderGrid(filtered, g ? g.toUpperCase() : 'TOUTES LES');
+  renderChList(filtered);
+  renderCountries();
+  closeSb();
+}
+
+function renderGrid(chs, titleStr) {
+  var grid = document.getElementById('chgrid');
+  grid.innerHTML = '';
+  document.getElementById('gridttl').innerHTML = titleStr + ' <span>CHAÎNES</span>';
+  
+  chs.forEach(function (ch, idx) {
+    var card = document.createElement('div');
+    card.className = 'gcard';
+    card.innerHTML = `
+      <div class="cardthumb">
+        ${ch.logo ? '<img src="'+ch.logo+'" onerror="this.style.display=\'none\'">' : '<span class="cardtxt">'+ch.name.slice(0,2)+'</span>'}
+        <div class="playov"><i class="fa-solid fa-play"></i></div>
+      </div>
+      <div class="cardbody">
+        <div class="cardname">${xss(ch.name)}</div>
+      </div>
+    `;
+    card.onclick = function () { play(ch, idx); };
+    grid.appendChild(card);
+  });
+}
+
+function renderChList(chs) {
+  var list = document.getElementById('chlist');
+  list.innerHTML = chs.map((ch, idx) => `
+    <div class="chitem" onclick="play(channels[${idx}], ${idx})">
+      <div class="chinfo">
+        <div class="chn">${xss(ch.name)}</div>
+        <div class="chg">${xss(ch.group)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ============================================================
+   LECTEUR (FRONTEND LOGIC)
+   ============================================================ */
+function play(ch, idx) {
+  curCh = ch; curIdx = idx;
+  document.getElementById('nowname').textContent = ch.name;
+  document.getElementById('playerview').classList.add('show');
+  document.getElementById('gridview').classList.remove('show');
+  
+  var v = document.getElementById('vid');
+  if (Hls.isSupported() && ch.url.includes('m3u8')) {
+    if (hlsObj) hlsObj.destroy();
+    hlsObj = new Hls();
+    hlsObj.loadSource(ch.url);
+    hlsObj.attachMedia(v);
+    hlsObj.on(Hls.Events.MANIFEST_PARSED, function() { v.play(); });
+  } else {
+    v.src = ch.url;
+    v.play();
+  }
+}
+
+function closePlayer() {
+  var v = document.getElementById('vid');
+  v.pause();
+  document.getElementById('playerview').classList.remove('show');
+  document.getElementById('gridview').classList.add('show');
+}
+
+/* ============================================================
+   NAVIGATION & UI HELPERS
+   ============================================================ */
+function switchTab(tab) {
+  document.querySelectorAll('.sbtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sbpanel').forEach(p => p.classList.remove('active'));
+  document.getElementById(tab === 'countries' ? 'tabC' : 'tabCh').classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+function openSb() { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbov').classList.add('show'); }
+function closeSb() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbov').classList.remove('show'); }
+
+function showLoading(t) { 
+  document.getElementById('loadscr').style.display = 'flex'; 
+  document.getElementById('loadtxt').textContent = t; 
+}
+
+function setStatus(cl, txt) {
+  document.getElementById('sdot').className = 'sdot ' + cl;
+  document.getElementById('stxt').textContent = txt;
+}
+
+function xss(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(t, s) {
+  var el = document.getElementById('toast');
+  document.getElementById('toastt').innerHTML = t;
+  document.getElementById('toasts').textContent = s;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+
+<script>
+/* ============================================================
+   API SOURCES
+   ============================================================ */
+
+const API_SOURCES_URL = 'https://lefong.vercel.app/api/sources'; 
+
+async function fetchDefaultSources() {
+  const loadScr = document.getElementById('loadscr');
+  const welcomeScr = document.getElementById('welcomeScr');
+  
+  setStatus('load', 'Mifandray amin\'ny API...');
+  
+  try {
+    const response = await fetch(API_SOURCES_URL);
+    
+    if (!response.ok) {
+      throw new Error(`Erreur serveur: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.ok && Array.isArray(data.sources)) {
+      renderCountryMenu(data.sources);
+      setStatus('live', 'API vonona');
+
+      if (data.sources.length > 0) {
+        await loadM3USource(data.sources[0]);
+      } else {
+        loadScr.style.display = 'none';
+        welcomeScr.style.display = 'flex';
+      }
+    } else {
+      throw new Error(data.error || "Data tsy mifanaraka");
+    }
+
+  } catch (err) {
+    console.error("Fahadisoana teo am-pangalana ny sources:", err);
+    
+    setStatus('err', 'API tsy azo');
+    showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur API', 'Tsy afaka naka ny lisitry ny firenena.');
+
+    if (loadScr) loadScr.style.display = 'none';
+    if (welcomeScr) welcomeScr.style.display = 'flex';
+  }
+}
+
+
+async function loadM3USource(source) {
+  curSrcId = 'api_' + source.id;
+  showLoading('Maka chaînes ' + source.name + '...');
+  
+  try {
+    const response = await fetch(source.url);
+    if (!response.ok) throw new Error("Tsy azo ny fichier M3U");
+    
+    const m3uText = await response.text();
+    const chs = parseM3ULocal(m3uText);
+    
+    applyChannels(chs, source.name);
+    
+    // Eto no fanitsiana: tsy hideLoading() fa ovaina ny style-n'ny loadscr
+    document.getElementById('loadscr').style.display = 'none';
+
+    document.querySelectorAll('.country-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-id') === curSrcId);
+    });
+
+  } catch (err) {
+    console.error("Fahadisoana:", err);
+    document.getElementById('loadscr').style.display = 'none'; // Eto koa
+    setStatus('err', 'Erreur M3U');
+    showToast('<i class="fa-solid fa-triangle-exclamation"></i> Erreur', 'Tsy azo vakiana ny URL M3U.');
+  }
+}
+
+
+function renderCountryMenu(apiSources) {
+  const el = document.getElementById('countryMenu');
+  if (!el) return;
+  el.innerHTML = '';
+
+  apiSources.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'country-btn';
+    btn.setAttribute('data-id', 'api_' + s.id);
+    btn.innerHTML = `<span class="country-label">${s.name}</span>`;
+    
+    btn.onclick = () => {
+      loadM3USource(s);
+    };
+    
+    el.appendChild(btn);
+  });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  fetchDefaultSources();
+});
+
+</script>
+</body>
+</html>
