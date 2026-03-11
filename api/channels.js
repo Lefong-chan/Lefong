@@ -1,3 +1,5 @@
+// api/channels.js — Chaînes intégrées par région
+
 export const REGIONS = [
   {
     id: 'fr',
@@ -53,7 +55,9 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   if (!id) {
-    return res.status(200).json({ regions: REGIONS.map(r => ({ id: r.id, name: r.name, icon: r.icon })) });
+    return res.status(200).json({
+      regions: REGIONS.map(r => ({ id: r.id, name: r.name, icon: r.icon })),
+    });
   }
 
   const region = REGIONS.find(r => r.id === id);
@@ -79,7 +83,7 @@ export default async function handler(req, res) {
     const text = await response.text();
 
     if (!text.trim().startsWith('#EXTM3U')) {
-      return res.status(422).json({ error: 'Le fichier récupéré n\'est pas un M3U valide.' });
+      return res.status(422).json({ error: "Le fichier récupéré n'est pas un M3U valide." });
     }
 
     const channels = parseM3U(text);
