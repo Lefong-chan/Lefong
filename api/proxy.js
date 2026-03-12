@@ -7,10 +7,12 @@ export default async function handler(req, res) {
   
   if (req.method === 'OPTIONS') return res.status(200).end();
   
-  const path = req.url?.split('?')[0] || '';
+  // Parse query params safely
+  let qs;
+  try { qs = new URL('http://x' + req.url).searchParams; } catch { qs = new URLSearchParams(); }
   
-  // ── ROUTE: Xtream Codes (/api/proxy/xtream) ────────────────
-  if (path.endsWith('/xtream') || path.includes('/xtream?')) {
+  // ── ROUTE: Xtream Codes (?type=xtream) ────────────────────
+  if (qs.get('type') === 'xtream' || req.url?.includes('/xtream')) {
     return handleXtream(req, res);
   }
   
@@ -37,7 +39,6 @@ export default async function handler(req, res) {
   
   // ── GET: import URL M3U ────────────────────────────────────
   if (req.method === 'GET') {
-    const qs = new URL('http://x' + req.url).searchParams;
     const url = req.query?.url || qs.get('url');
     if (!url) return res.status(400).json({ error: 'Missing M3U URL.' });
     if (!/^https?:\/\//i.test(url)) {
