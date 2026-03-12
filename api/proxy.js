@@ -6,11 +6,11 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') return res.status(200).end();
-  
+
   // Parse query params safely
   let qs;
   try { qs = new URL('http://x' + req.url).searchParams; } catch { qs = new URLSearchParams(); }
-  
+
   // ── ROUTE: Xtream Codes (?type=xtream) ────────────────────
   if (qs.get('type') === 'xtream' || req.url?.includes('/xtream')) {
     return handleXtream(req, res);
@@ -146,7 +146,7 @@ async function handleXtream(req, res) {
       
       // Map streams → unified channel format
       const channels = streams.map(s => {
-        const streamUrl = `${base}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${s.stream_id}.m3u8`;
+        const streamUrl = `${base}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${s.stream_id}.ts`;
         const groupName = catMap[String(s.category_id)] || String(s.category_name || '').trim();
         return {
           name: String(s.name || 'Unknown').trim(),
