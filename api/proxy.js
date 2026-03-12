@@ -75,8 +75,8 @@ export default async function handler(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// STREAM PROXY HANDLER — proxies .m3u8 manifests and .ts segments
-// to bypass CORS restrictions on IPTV servers
+// STREAM PROXY HANDLER — proxies .m3u8 manifest only
+// Segments (.ts) are served directly from IPTV server (absolute URLs)
 // ══════════════════════════════════════════════════════════════
 async function handleStream(req, res, qs) {
   const targetUrl = qs.get('url');
@@ -85,66 +85,68 @@ async function handleStream(req, res, qs) {
     return res.status(400).json({ error: 'Missing or invalid stream URL.' });
   }
 
+  // Only proxy .m3u8 manifests — reject .ts and other binary
+  const isManifest = targetUrl.endsWith('.m3u8') ||
+                     targetUrl.includes('.m3u8?') ||
+                     targetUrl.includes('/m3u8');
+
+  if (!isManifest) {
+    // Redirect browser directly to segment — no proxying
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Location', targetUrl);
+    return res.status(302).end();
+  }
+
   try {
     const upstream = await fetch(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Player/1.0)',
         'Accept':     '*/*',
-        'Connection': 'keep-alive',
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!upstream.ok) {
       return res.status(upstream.status).json({ error: `Stream server returned ${upstream.status}.` });
     }
 
-    const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+    const text = await upstream.text();
+    const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+    const origin  = new URL(targetUrl).origin;
 
-    // For .m3u8 manifests: rewrite all URLs inside to go through our proxy
-    if (
-      ct.includes('mpegurl') ||
-      ct.includes('m3u') ||
-      targetUrl.endsWith('.m3u8') ||
-      targetUrl.includes('.m3u8?')
-    ) {
-      const text = await upstream.text();
-      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-      const proxyBase = req.url.split('?')[0]; // /api/proxy
+    // Rewrite manifest: make all URLs absolute (pointing directly at IPTV server)
+    // Sub-playlists (.m3u8) go through proxy; segments (.ts etc.) go direct
+    const rewritten = text.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return line;
 
-      // Rewrite each line: relative URLs → absolute → proxied
-      const rewritten = text.split('\n').map(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return line;
-        // Build absolute URL
-        let absUrl;
-        if (/^https?:\/\//i.test(trimmed)) {
-          absUrl = trimmed;
-        } else if (trimmed.startsWith('/')) {
-          const origin = new URL(targetUrl).origin;
-          absUrl = origin + trimmed;
-        } else {
-          absUrl = baseUrl + trimmed;
-        }
-        return `${proxyBase}?type=stream&url=${encodeURIComponent(absUrl)}`;
-      }).join('\n');
+      // Build absolute URL to IPTV server
+      let absUrl;
+      if (/^https?:\/\//i.test(trimmed)) {
+        absUrl = trimmed;
+      } else if (trimmed.startsWith('/')) {
+        absUrl = origin + trimmed;
+      } else {
+        absUrl = baseUrl + trimmed;
+      }
 
-      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 'no-cache');
-      return res.status(200).send(rewritten);
-    }
+      // Sub-playlist (.m3u8) → still proxy it (for CORS on manifest)
+      if (absUrl.includes('.m3u8')) {
+        return `/api/proxy?type=stream&url=${encodeURIComponent(absUrl)}`;
+      }
 
-    // For .ts segments and other binary: pipe through
-    const buffer = await upstream.arrayBuffer();
-    res.setHeader('Content-Type', ct);
+      // Segments (.ts, .aac, .mp4 etc.) → direct URL, no proxy
+      return absUrl;
+    }).join('\n');
+
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).send(Buffer.from(buffer));
+    return res.status(200).send(rewritten);
 
   } catch (err) {
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      return res.status(504).json({ error: 'Stream timeout (15s).' });
+      return res.status(504).json({ error: 'Stream manifest timeout (12s).' });
     }
     return res.status(500).json({ error: 'Stream proxy error: ' + err.message });
   }
