@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/proxy.js": {
+      "maxDuration": 30
+    },
+    "api/stream.js": {
+      "maxDuration": 60
+    }
+  }
+}
