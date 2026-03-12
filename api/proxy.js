@@ -6,14 +6,19 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') return res.status(200).end();
-  
+
   // Parse query params safely
   let qs;
   try { qs = new URL('http://x' + req.url).searchParams; } catch { qs = new URLSearchParams(); }
-  
+
   // ── ROUTE: Xtream Codes (?type=xtream) ────────────────────
   if (qs.get('type') === 'xtream' || req.url?.includes('/xtream')) {
     return handleXtream(req, res);
+  }
+
+  // ── ROUTE: Stream proxy (?type=stream&url=...) ─────────────
+  if (qs.get('type') === 'stream') {
+    return handleStream(req, res, qs);
   }
   
   // ── POST: import fichier M3U ───────────────────────────────
@@ -67,6 +72,82 @@ export default async function handler(req, res) {
   }
   
   return res.status(405).json({ error: 'Method not allowed.' });
+}
+
+// ══════════════════════════════════════════════════════════════
+// STREAM PROXY HANDLER — proxies .m3u8 manifests and .ts segments
+// to bypass CORS restrictions on IPTV servers
+// ══════════════════════════════════════════════════════════════
+async function handleStream(req, res, qs) {
+  const targetUrl = qs.get('url');
+
+  if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+    return res.status(400).json({ error: 'Missing or invalid stream URL.' });
+  }
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Player/1.0)',
+        'Accept':     '*/*',
+        'Connection': 'keep-alive',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: `Stream server returned ${upstream.status}.` });
+    }
+
+    const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+
+    // For .m3u8 manifests: rewrite all URLs inside to go through our proxy
+    if (
+      ct.includes('mpegurl') ||
+      ct.includes('m3u') ||
+      targetUrl.endsWith('.m3u8') ||
+      targetUrl.includes('.m3u8?')
+    ) {
+      const text = await upstream.text();
+      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+      const proxyBase = req.url.split('?')[0]; // /api/proxy
+
+      // Rewrite each line: relative URLs → absolute → proxied
+      const rewritten = text.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        // Build absolute URL
+        let absUrl;
+        if (/^https?:\/\//i.test(trimmed)) {
+          absUrl = trimmed;
+        } else if (trimmed.startsWith('/')) {
+          const origin = new URL(targetUrl).origin;
+          absUrl = origin + trimmed;
+        } else {
+          absUrl = baseUrl + trimmed;
+        }
+        return `${proxyBase}?type=stream&url=${encodeURIComponent(absUrl)}`;
+      }).join('\n');
+
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.status(200).send(rewritten);
+    }
+
+    // For .ts segments and other binary: pipe through
+    const buffer = await upstream.arrayBuffer();
+    res.setHeader('Content-Type', ct);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.status(200).send(Buffer.from(buffer));
+
+  } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Stream timeout (15s).' });
+    }
+    return res.status(500).json({ error: 'Stream proxy error: ' + err.message });
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
