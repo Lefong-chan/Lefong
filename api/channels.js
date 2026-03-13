@@ -1,50 +1,13 @@
 // api/channels.js — Chaînes intégrées par région
 
-import { parseM3U } from './_parseM3U.js';
-
-export const REGIONS = [
-  {
-    id: 'fr',
-    name: 'France',
-    icon: '🇫🇷',
-    url: 'https://iptv-org.github.io/iptv/countries/fr.m3u',
-  },
-  {
-    id: 'pf',
-    name: 'Polynésie française',
-    icon: '🇵🇫',
-    url: 'https://iptv-org.github.io/iptv/countries/pf.m3u',
-  },
-  {
-    id: 'ga',
-    name: 'Gabon',
-    icon: '🇬🇦',
-    url: 'https://iptv-org.github.io/iptv/countries/ga.m3u',
-  },
-  {
-    id: 'gm',
-    name: 'Gambie',
-    icon: '🇬🇲',
-    url: 'https://iptv-org.github.io/iptv/countries/gm.m3u',
-  },
-  {
-    id: 'ge',
-    name: 'Géorgie',
-    icon: '🇬🇪',
-    url: 'https://iptv-org.github.io/iptv/countries/ge.m3u',
-  },
-  {
-    id: 'de',
-    name: 'Allemagne',
-    icon: '🇩🇪',
-    url: 'https://iptv-org.github.io/iptv/countries/de.m3u',
-  },
-  {
-    id: 'gh',
-    name: 'Ghana',
-    icon: '🇬🇭',
-    url: 'https://iptv-org.github.io/iptv/countries/gh.m3u',
-  },
+const REGIONS = [
+  { id: 'fr', name: 'France',             icon: '🇫🇷', url: 'https://iptv-org.github.io/iptv/countries/fr.m3u' },
+  { id: 'pf', name: 'Polynésie française', icon: '🇵🇫', url: 'https://iptv-org.github.io/iptv/countries/pf.m3u' },
+  { id: 'ga', name: 'Gabon',              icon: '🇬🇦', url: 'https://iptv-org.github.io/iptv/countries/ga.m3u' },
+  { id: 'gm', name: 'Gambie',             icon: '🇬🇲', url: 'https://iptv-org.github.io/iptv/countries/gm.m3u' },
+  { id: 'ge', name: 'Géorgie',            icon: '🇬🇪', url: 'https://iptv-org.github.io/iptv/countries/ge.m3u' },
+  { id: 'de', name: 'Allemagne',          icon: '🇩🇪', url: 'https://iptv-org.github.io/iptv/countries/de.m3u' },
+  { id: 'gh', name: 'Ghana',              icon: '🇬🇭', url: 'https://iptv-org.github.io/iptv/countries/gh.m3u' },
 ];
 
 export default async function handler(req, res) {
@@ -102,4 +65,38 @@ export default async function handler(req, res) {
     }
     return res.status(500).json({ error: 'Erreur serveur : ' + err.message });
   }
+}
+
+// ── Parser M3U ────────────────────────────────────────────────
+function parseM3U(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const channels = [];
+  let current = null;
+  for (const line of lines) {
+    if (line.startsWith('#EXTINF:')) {
+      current = parseExtinf(line);
+    } else if (line.startsWith('#')) {
+      continue;
+    } else if (/^https?:\/\//i.test(line)) {
+      if (current) { current.url = line; channels.push(current); current = null; }
+    }
+  }
+  return channels;
+}
+
+function parseExtinf(line) {
+  const ch = { name: '', group: '', logo: '', id: '', url: '' };
+  const commaIdx = line.lastIndexOf(',');
+  if (commaIdx !== -1) ch.name = line.slice(commaIdx + 1).trim();
+  ch.id    = extractAttr(line, 'tvg-id');
+  ch.logo  = extractAttr(line, 'tvg-logo');
+  ch.group = extractAttr(line, 'group-title');
+  if (!ch.name) ch.name = extractAttr(line, 'tvg-name') || 'Chaîne inconnue';
+  return ch;
+}
+
+function extractAttr(line, attr) {
+  const re = new RegExp(attr + '=["\']([^"\']*)["\']', 'i');
+  const m  = line.match(re);
+  return m ? m[1].trim() : '';
 }
