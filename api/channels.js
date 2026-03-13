@@ -1,21 +1,22 @@
 // api/channels.js — Chaînes intégrées par région
 
-import { parseM3U } from './_parseM3U.js';
+const { parseM3U } = require('./_parseM3U');
 
 const REGIONS = [
   { id: 'fr', name: 'France',              icon: '🇫🇷', url: 'https://iptv-org.github.io/iptv/countries/fr.m3u' },
   { id: 'pf', name: 'Polynésie française', icon: '🇵🇫', url: 'https://iptv-org.github.io/iptv/countries/pf.m3u' },
-  { id: 'ga', name: 'Gabon',               icon: '🇬🇦', url: 'https://iptv-org.github.io/iptv/countries/ga.m3u' },
-  { id: 'gm', name: 'Gambie',              icon: '🇬🇲', url: 'https://iptv-org.github.io/iptv/countries/gm.m3u' },
-  { id: 'ge', name: 'Géorgie',             icon: '🇬🇪', url: 'https://iptv-org.github.io/iptv/countries/ge.m3u' },
+  { id: 'mg', name: 'Madagascar',          icon: '🇲🇬', url: 'https://iptv-org.github.io/iptv/countries/mg.m3u' },
+  { id: 're', name: 'La Réunion',          icon: '🇷🇪', url: 'https://iptv-org.github.io/iptv/countries/re.m3u' },
+  { id: 'gb', name: 'Royaume-Uni',         icon: '🇬🇧', url: 'https://iptv-org.github.io/iptv/countries/gb.m3u' },
+  { id: 'us', name: 'États-Unis',          icon: '🇺🇸', url: 'https://iptv-org.github.io/iptv/countries/us.m3u' },
   { id: 'de', name: 'Allemagne',           icon: '🇩🇪', url: 'https://iptv-org.github.io/iptv/countries/de.m3u' },
-  { id: 'gh', name: 'Ghana',               icon: '🇬🇭', url: 'https://iptv-org.github.io/iptv/countries/gh.m3u' },
+  { id: 'es', name: 'Espagne',             icon: '🇪🇸', url: 'https://iptv-org.github.io/iptv/countries/es.m3u' },
+  { id: 'it', name: 'Italie',              icon: '🇮🇹', url: 'https://iptv-org.github.io/iptv/countries/it.m3u' },
+  { id: 'br', name: 'Brésil',              icon: '🇧🇷', url: 'https://iptv-org.github.io/iptv/countries/br.m3u' },
 ];
 
-// Caractères autorisés pour l'id région
 const VALID_ID = /^[a-z]{2,5}$/;
 
-// Fetch avec timeout compatible tous environnements
 function fetchWithTimeout(url, options, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs);
@@ -25,7 +26,7 @@ function fetchWithTimeout(url, options, timeoutMs) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -34,26 +35,25 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Méthode non autorisée.' });
 
-  const { id } = req.query || {};
+  const id = (req.query || {}).id;
 
-  // ── Sans id : retourner la liste des régions ────────────────
+  // Sans id : liste des régions
   if (!id) {
     return res.status(200).json({
       regions: REGIONS.map(r => ({ id: r.id, name: r.name, icon: r.icon })),
     });
   }
 
-  // ── Validation id ───────────────────────────────────────────
+  // Validation id
   if (!VALID_ID.test(id)) {
     return res.status(400).json({ error: 'Identifiant de région invalide.' });
   }
 
   const region = REGIONS.find(r => r.id === id);
   if (!region) {
-    return res.status(404).json({ error: `Région introuvable : ${id}` });
+    return res.status(404).json({ error: 'Région introuvable : ' + id });
   }
 
-  // ── Fetch + parse ───────────────────────────────────────────
   try {
     const response = await fetchWithTimeout(region.url, {
       headers: {
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(502).json({
-        error: `Impossible de récupérer les chaînes de ${region.name} : HTTP ${response.status}`,
+        error: 'Impossible de récupérer les chaînes de ' + region.name + ' : HTTP ' + response.status,
       });
     }
 
@@ -77,15 +77,15 @@ export default async function handler(req, res) {
     const channels = parseM3U(text);
 
     return res.status(200).json({
-      region: { id: region.id, name: region.name, icon: region.icon },
-      total:  channels.length,
-      channels,
+      region:   { id: region.id, name: region.name, icon: region.icon },
+      total:    channels.length,
+      channels: channels,
     });
 
   } catch (err) {
     if (err.message === 'TIMEOUT') {
-      return res.status(504).json({ error: `Délai dépassé pour ${region.name} (20s).` });
+      return res.status(504).json({ error: 'Délai dépassé pour ' + region.name + ' (20s).' });
     }
     return res.status(500).json({ error: 'Erreur serveur : ' + (err.message || 'inconnue') });
   }
-}
+};
