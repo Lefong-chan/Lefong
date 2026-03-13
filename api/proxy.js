@@ -2,8 +2,6 @@
 const https = require('https');
 const http  = require('http');
 
-module.exports.config = { api: { bodyParser: false } };
-
 function readBody(req) {
   return new Promise(function(resolve, reject) {
     var data = '';
@@ -121,3 +119,5 @@ module.exports = function handler(req, res) {
 
   res.status(405).json({ error: 'Méthode non autorisée.' });
 };
+
+module.exports.config = { api: { bodyParser: false } };
