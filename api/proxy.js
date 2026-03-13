@@ -1,16 +1,18 @@
 // api/proxy.js — M3U Proxy (URL + File upload)
 
-const { parseM3U } = require('./_parseM3U');
+const { parseM3U } = require('./_parseM3U.js');
+const https = require('https');
+const http  = require('http');
 
-// Désactiver le body parser automatique de Vercel
 module.exports.config = {
   api: {
     bodyParser: false,
   },
 };
 
+// Lire le body brut
 function readBody(req) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     let data = '';
     req.setEncoding('utf8');
     req.on('data', function(chunk) {
@@ -20,17 +22,43 @@ function readBody(req) {
         reject(new Error('Fichier trop volumineux (max 6 Mo).'));
       }
     });
-    req.on('end', function() { resolve(data); });
+    req.on('end',   function() { resolve(data); });
     req.on('error', reject);
   });
 }
 
-function fetchWithTimeout(url, options, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs);
-    fetch(url, options)
-      .then(function(res) { clearTimeout(timer); resolve(res); })
-      .catch(function(err) { clearTimeout(timer); reject(err); });
+// Fetch HTTP/HTTPS compatible Node.js 14+
+function fetchText(url, timeoutMs) {
+  return new Promise(function(resolve, reject) {
+    const client = url.startsWith('https') ? https : http;
+    const timer  = setTimeout(function() { reject(new Error('TIMEOUT')); }, timeoutMs);
+
+    const req = client.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Player/1.0)',
+        'Accept': '*/*',
+      }
+    }, function(res) {
+      // Suivre les redirections
+      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
+        clearTimeout(timer);
+        fetchText(res.headers.location, timeoutMs).then(resolve).catch(reject);
+        return;
+      }
+      if (res.statusCode !== 200) {
+        clearTimeout(timer);
+        reject(new Error('HTTP ' + res.statusCode));
+        return;
+      }
+      res.setEncoding('utf8');
+      let data = '';
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end',  function() { clearTimeout(timer); resolve(data); });
+      res.on('error', function(err) { clearTimeout(timer); reject(err); });
+    });
+
+    req.on('error', function(err) { clearTimeout(timer); reject(err); });
+    req.end();
   });
 }
 
@@ -89,20 +117,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      const response = await fetchWithTimeout(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Player/1.0)',
-          'Accept': '*/*',
-        },
-      }, 20000);
-
-      if (!response.ok) {
-        return res.status(502).json({
-          error: 'Impossible de récupérer le fichier M3U : HTTP ' + response.status,
-        });
-      }
-
-      const text = await response.text();
+      const text = await fetchText(url, 20000);
 
       if (!text.trim().startsWith('#EXTM3U')) {
         return res.status(422).json({ error: "Le fichier récupéré n'est pas un M3U valide." });
