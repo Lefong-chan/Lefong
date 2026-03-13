@@ -1,6 +1,6 @@
 // api/_parseM3U.js — Parser M3U partagé
 
-export function parseM3U(text) {
+function parseM3U(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const channels = [];
   let current = null;
@@ -46,3 +46,5 @@ function extractAttr(line, attr) {
   const m = line.match(re);
   return m ? m[1].trim() : '';
 }
+
+module.exports = { parseM3U };
