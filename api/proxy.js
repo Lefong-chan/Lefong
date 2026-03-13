@@ -1,45 +1,40 @@
 // api/proxy.js — M3U Proxy (URL + File upload)
-// Fix: body parsing manuel pour Vercel, gestion timeout compatible, réponse JSON garantie
 
-import { parseM3U } from './_parseM3U.js';
+const { parseM3U } = require('./_parseM3U');
 
-// Vercel: désactiver le body parser automatique pour gérer les gros fichiers
-export const config = {
+// Désactiver le body parser automatique de Vercel
+module.exports.config = {
   api: {
     bodyParser: false,
   },
 };
 
-// Lire le body brut de la requête
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
     req.setEncoding('utf8');
-    req.on('data', chunk => {
+    req.on('data', function(chunk) {
       data += chunk;
-      // Limite 6MB pour éviter les abus
       if (data.length > 6 * 1024 * 1024) {
         req.destroy();
         reject(new Error('Fichier trop volumineux (max 6 Mo).'));
       }
     });
-    req.on('end', () => resolve(data));
+    req.on('end', function() { resolve(data); });
     req.on('error', reject);
   });
 }
 
-// Fetch avec timeout compatible tous environnements
 function fetchWithTimeout(url, options, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs);
     fetch(url, options)
-      .then(res => { clearTimeout(timer); resolve(res); })
-      .catch(err => { clearTimeout(timer); reject(err); });
+      .then(function(res) { clearTimeout(timer); resolve(res); })
+      .catch(function(err) { clearTimeout(timer); reject(err); });
   });
 }
 
-export default async function handler(req, res) {
-  // Headers CORS toujours présents
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -49,7 +44,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // ── POST : import fichier M3U ─────────────────────────────────
+  // POST : fichier M3U uploadé
   if (req.method === 'POST') {
     try {
       const raw = await readBody(req);
@@ -61,11 +56,11 @@ export default async function handler(req, res) {
       let body;
       try {
         body = JSON.parse(raw);
-      } catch {
+      } catch (e) {
         return res.status(400).json({ error: 'Corps JSON invalide.' });
       }
 
-      const text = body?.content;
+      const text = body && body.content;
 
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ error: 'Contenu M3U manquant (champ "content").' });
@@ -75,16 +70,16 @@ export default async function handler(req, res) {
       }
 
       const channels = parseM3U(text);
-      return res.status(200).json({ total: channels.length, channels });
+      return res.status(200).json({ total: channels.length, channels: channels });
 
     } catch (err) {
       return res.status(500).json({ error: 'Erreur serveur : ' + (err.message || 'inconnue') });
     }
   }
 
-  // ── GET : import URL M3U ──────────────────────────────────────
+  // GET : URL M3U distante
   if (req.method === 'GET') {
-    const url = req.query?.url;
+    const url = req.query && req.query.url;
 
     if (!url) {
       return res.status(400).json({ error: 'Paramètre "url" manquant.' });
@@ -103,7 +98,7 @@ export default async function handler(req, res) {
 
       if (!response.ok) {
         return res.status(502).json({
-          error: `Impossible de récupérer le fichier M3U : HTTP ${response.status}`,
+          error: 'Impossible de récupérer le fichier M3U : HTTP ' + response.status,
         });
       }
 
@@ -114,7 +109,7 @@ export default async function handler(req, res) {
       }
 
       const channels = parseM3U(text);
-      return res.status(200).json({ total: channels.length, channels });
+      return res.status(200).json({ total: channels.length, channels: channels });
 
     } catch (err) {
       if (err.message === 'TIMEOUT') {
@@ -125,4 +120,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: 'Méthode non autorisée.' });
-}
+};
