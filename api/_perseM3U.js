@@ -1,4 +1,4 @@
-// api/_parseM3U.js — Parser M3U partagé (channels.js + proxy.js)
+// api/_parseM3U.js — Parser M3U partagé
 
 export function parseM3U(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
