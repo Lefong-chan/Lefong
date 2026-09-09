@@ -169,11 +169,23 @@ async function withNavigationRetry(run, retry) {
   }
 }
 
+// Confirmed against a live search the site owner ran on their own phone
+// (m.1688.com/offer_search/-6D7033.html?keywords=Telephone) - the
+// guessed .../offer/search.htm?keywords= URL used before this turned out
+// to be wrong (1688 read it as a single-product "offer" page instead of a
+// search, and returned a "product not found/delisted" page). The
+// "-6D7033" segment looks like a fixed route id for the search mini-page
+// rather than something that varies per keyword, so it's kept as a
+// constant here; the pagination param name isn't confirmed the same way,
+// so &page= is a best-effort guess for anything past the first page.
+const SEARCH_PATH = '/offer_search/-6D7033.html'
+
 async function scrapeSearch(keyword, page, { timeoutMs = 12000, debug = false, retry = true } = {}) {
   const run = () =>
     withTimeout(
       withPage(async (browserPage) => {
-        const url = `https://m.1688.com/offer/search.htm?keywords=${encodeURIComponent(keyword)}&beginPage=${page}`
+        const pageParam = Number(page) > 1 ? `&page=${page}` : ''
+        const url = `https://m.1688.com${SEARCH_PATH}?keywords=${encodeURIComponent(keyword)}${pageParam}`
         const { title, bodyText } = await navigateAndCheck(browserPage, url, timeoutMs)
         const items = await browserPage.evaluate(extractCards)
 
