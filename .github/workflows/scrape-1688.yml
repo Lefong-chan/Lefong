@@ -32,6 +32,14 @@ jobs:
         with:
           node-version: 20
 
+      # scraper/index.js imports api/_lib/firebaseAdmin.js, normalize.js,
+      # etc. directly (shared with the site, see scraper/README.md) -
+      # those live outside scraper/, so their own bare-specifier imports
+      # (e.g. "firebase-admin") resolve from the repo root's node_modules,
+      # not scraper's. Both installs are needed.
+      - name: Install root dependencies
+        run: npm ci
+
       - name: Install scraper dependencies
         working-directory: scraper
         run: npm ci
