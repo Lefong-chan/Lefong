@@ -1,4 +1,4 @@
-import { getCategories } from './_lib/cjdropshipping.js'
+import { getCategories } from './_lib/scraper1688.js'
 import { normalizeCategories } from './_lib/normalize.js'
 
 export default async function handler(req, res) {
@@ -9,16 +9,8 @@ export default async function handler(req, res) {
 
   try {
     const raw = await getCategories()
-
-    // Same temporary diagnostic escape hatch as api/search.js - see there.
-    if (req.query.raw === '1') {
-      res.setHeader('Cache-Control', 'no-store')
-      res.status(200).json(raw)
-      return
-    }
-
     const categories = normalizeCategories(raw)
-    // Categories change rarely, unlike product listings - safe to cache longer.
+    // A fixed curated list (see _lib/scraper1688.js) - safe to cache long.
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')
     res.status(200).json({ categories })
   } catch (err) {

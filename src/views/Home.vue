@@ -14,10 +14,10 @@ const sentinel = ref(null)
 let observer = null
 let keywordCursor = 0
 
-// Real categories from CJ Dropshipping's /product/getCategory when that
-// loads something usable; otherwise this reliable fixed list keeps the
-// filter row from ever showing empty (translated from the original
-// Chinese quick-search keywords).
+// Categories from /api/categories (a small curated list of 1688 search
+// keywords, see api/_lib/scraper1688.js) when that loads something usable;
+// otherwise this reliable fixed list keeps the filter row from ever
+// showing empty.
 const FALLBACK_CHIPS = [
   { type: 'keyword', value: 'phone case', label: 'Phone Case' },
   { type: 'keyword', value: 'keychain', label: 'Keychain' },
@@ -140,7 +140,7 @@ onUnmounted(() => {
 
       <div v-else-if="error" class="text-center text-sm text-gray-500 py-10">
         <p>{{ error }}</p>
-        <p class="text-xs mt-1 text-gray-400">Check that CJ_API_KEY, CJ_API_EMAIL and CJ_API_BASE_URL are configured on Vercel.</p>
+        <p class="text-xs mt-1 text-gray-400">1688 may be temporarily blocking automated browsing - try again in a moment.</p>
       </div>
 
       <div v-else-if="!products.length" class="text-center text-sm text-gray-400 py-10">
