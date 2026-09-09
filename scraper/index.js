@@ -45,15 +45,29 @@ function randomDelay(minMs, maxMs) {
 
 class Blocked extends Error {}
 
+function shuffled(arr) {
+  return [...arr].sort(() => Math.random() - 0.5)
+}
+
 async function pickBatch() {
-  // Prioritize keywords with no cache entry at all (never successfully
-  // indexed) so a run makes forward progress instead of re-rolling ones
-  // already covered; only falls back to randomly refreshing already-known
-  // keywords once every keyword has at least something cached.
+  // Mostly prioritizes keywords with no cache entry at all (never
+  // successfully indexed) so a run makes forward progress instead of
+  // re-rolling ones already covered - but always reserves one slot (when
+  // there's more than one keyword to pick and something already indexed
+  // to refresh) for revisiting an already-known keyword. Otherwise an
+  // already-covered keyword would never get re-scraped again once every
+  // *other* keyword has at least something cached, which would mean an
+  // extraction fix (or a stale price) never reaches it either.
   const statuses = await Promise.all(KEYWORDS.map(async (kw) => ({ kw, cached: await getCachedSearch(kw) })))
   const neverIndexed = statuses.filter((s) => !s.cached).map((s) => s.kw)
-  const pool = neverIndexed.length ? neverIndexed : KEYWORDS
-  return [...pool].sort(() => Math.random() - 0.5).slice(0, BATCH_SIZE)
+  const alreadyIndexed = statuses.filter((s) => s.cached).map((s) => s.kw)
+
+  if (!alreadyIndexed.length) return shuffled(neverIndexed).slice(0, BATCH_SIZE)
+  if (!neverIndexed.length) return shuffled(alreadyIndexed).slice(0, BATCH_SIZE)
+
+  const fresh = shuffled(neverIndexed).slice(0, Math.max(0, BATCH_SIZE - 1))
+  const refresh = shuffled(alreadyIndexed).slice(0, BATCH_SIZE - fresh.length)
+  return shuffled([...fresh, ...refresh])
 }
 
 async function indexKeyword(keyword) {
