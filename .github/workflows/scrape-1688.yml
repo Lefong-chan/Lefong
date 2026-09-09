@@ -1,0 +1,50 @@
+name: Scrape 1688
+
+# Runs the bot in scraper/ on GitHub's own servers instead of requiring the
+# site owner's own PC/phone to be online - see scraper/README.md for why
+# this exists at all (1688 blocks requests from Vercel's serverless IPs).
+# GitHub Actions runners are also cloud/datacenter IPs, so there's a real
+# chance 1688 blocks these too - this is the free, no-hardware-required
+# option to try before giving up on live scraping entirely.
+#
+# Needs four repository secrets set first (Settings -> Secrets and
+# variables -> Actions -> New repository secret), using the exact same
+# values already set on Vercel (Vercel dashboard -> Project Settings ->
+# Environment Variables): FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL,
+# FIREBASE_PRIVATE_KEY, FIREBASE_DATABASE_URL.
+#
+# Use the "Run workflow" button on this workflow's Actions page to trigger
+# it on demand instead of waiting for the schedule below.
+
+on:
+  schedule:
+    - cron: '0 */12 * * *' # every 12 hours - widen this if minute usage allows it
+  workflow_dispatch: {}
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install scraper dependencies
+        working-directory: scraper
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: scraper
+        run: npx playwright install --with-deps chromium
+
+      - name: Run scraper
+        working-directory: scraper
+        run: node index.js
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
