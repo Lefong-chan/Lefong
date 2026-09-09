@@ -22,8 +22,14 @@ async function launchBrowser() {
 
   if (isServerless) {
     // @sparticuz/chromium is only imported on serverless so a local dev
-    // install doesn't need to download its (Linux-only) binary too.
+    // install doesn't need to download its (Linux-only) binary too. Needs
+    // to be recent enough to detect Vercel's runtime itself (it checks
+    // process.env.VERCEL internally) - older releases don't recognize it
+    // as an Amazon-Linux-2023-compatible environment and load a Chromium
+    // build that's missing shared libraries (dies with an "error while
+    // loading shared libraries: libnss3.so" launch failure).
     const { default: sparticuzChromium } = await import('@sparticuz/chromium')
+    sparticuzChromium.setGraphicsMode = false // no WebGL needed for scraping - fewer libs required
     return chromium.launch({
       args: sparticuzChromium.args,
       executablePath: await sparticuzChromium.executablePath(),
