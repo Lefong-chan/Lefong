@@ -1,5 +1,4 @@
-import { getItemDetail } from './_lib/scraper1688.js'
-import { normalizeDetailResponse } from './_lib/normalize.js'
+import { getCachedProduct } from './_lib/productCache.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,33 +13,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Same ?debug=1 diagnostic hatch as api/search.js - see there.
-    const debug = req.query.debug === '1'
-    const raw = await getItemDetail(itemId, { timeoutMs: 12000, debug })
-
-    if (debug) {
-      res.setHeader('Cache-Control', 'no-store')
-      res.status(200).json(raw)
-      return
-    }
-
-    const normalized = normalizeDetailResponse(raw)
-    if (!normalized) {
+    const cached = await getCachedProduct(itemId)
+    if (!cached) {
+      // The scraper bot (see scraper/index.js) hasn't indexed this item's
+      // own detail page yet - it writes one for every item it finds while
+      // indexing a search, so this should be rare once it's run at least
+      // once broadly.
       res.status(404).json({ error: 'Product not found' })
       return
     }
-    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=600')
-    res.status(200).json(normalized)
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=3600')
+    res.status(200).json(cached)
   } catch (err) {
     console.error('product detail error', err)
-    if (err.blocked) {
-      res.status(503).json({ error: '1688 is temporarily blocking automated browsing - try again shortly', detail: err.message })
-      return
-    }
-    if (err.timedOut) {
-      res.status(504).json({ error: 'Timed out fetching this product from 1688', detail: err.message })
-      return
-    }
     res.status(502).json({ error: 'Could not fetch the product details', detail: err.message })
   }
 }

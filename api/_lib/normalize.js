@@ -1,10 +1,12 @@
 // Fills in the flat item/detail shape the rest of the app expects (see
 // src/components/ProductCard.vue, src/views/ProductDetail.vue) from what
-// api/_lib/scraper1688.js pulled off the page. The scraper already returns
-// fields under roughly the right names - this just applies defaults for
-// anything a given page didn't have and normalizes value formats (protocol-
-// relative image URLs, price as a number, etc.) so the rest of the app
-// never has to special-case a missing field.
+// scraper/index.js pulled off the page before writing it to Firebase.
+// The scraper already returns fields under roughly the right names - this
+// just applies defaults for anything a given page didn't have and
+// normalizes value formats (protocol-relative image URLs, price as a
+// number, etc.) so the rest of the app never has to special-case a
+// missing field. Used by the scraper bot only - the api/ handlers just
+// read back whatever it already wrote out in this shape.
 
 function absoluteImage(url) {
   if (!url) return ''
@@ -40,11 +42,6 @@ export function normalizeSearchResponse(raw, keyword, page) {
     total: items.length,
     items
   }
-}
-
-export function normalizeCategories(raw) {
-  if (!Array.isArray(raw)) return []
-  return raw.filter((c) => c?.id && c?.name).map((c) => ({ id: String(c.id), name: String(c.name) }))
 }
 
 export function normalizeDetailResponse(raw) {

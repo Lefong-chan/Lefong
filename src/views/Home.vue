@@ -140,7 +140,7 @@ onUnmounted(() => {
 
       <div v-else-if="error" class="text-center text-sm text-gray-500 py-10">
         <p>{{ error }}</p>
-        <p class="text-xs mt-1 text-gray-400">1688 may be temporarily blocking automated browsing - try again in a moment.</p>
+        <p class="text-xs mt-1 text-gray-400">Try again in a moment.</p>
       </div>
 
       <div v-else-if="!products.length" class="text-center text-sm text-gray-400 py-10">
