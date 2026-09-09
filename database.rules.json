@@ -1,0 +1,44 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null && auth.token.email === 'fongchaneric1@gmail.com'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'fongchaneric1@gmail.com')",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'fongchaneric1@gmail.com')"
+      }
+    },
+
+    "carts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "favorites": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "orders": {
+      ".read": "auth != null && auth.token.email === 'fongchaneric1@gmail.com'",
+      ".indexOn": ["userId", "status", "createdAt"],
+      "$orderId": {
+        ".read": "auth != null && (auth.token.email === 'fongchaneric1@gmail.com' || data.child('userId').val() === auth.uid)",
+        ".write": "auth != null && (auth.token.email === 'fongchaneric1@gmail.com' || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid && newData.child('userId').val() === auth.uid && newData.child('status').val() === data.child('status').val()))"
+      }
+    },
+
+    "userOrders": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'fongchaneric1@gmail.com')",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'fongchaneric1@gmail.com')"
+      }
+    }
+  }
+}
