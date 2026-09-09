@@ -1,4 +1,4 @@
-import { searchItems, listByCategory } from './_lib/cjdropshipping.js'
+import { searchItems, listByCategory } from './_lib/scraper1688.js'
 import { normalizeSearchResponse } from './_lib/normalize.js'
 import { getCachedSearch, setCachedSearch } from './_lib/searchCache.js'
 
@@ -14,9 +14,14 @@ import { getCachedSearch, setCachedSearch } from './_lib/searchCache.js'
 // chips) - that stays pure to the category across attempts (deeper
 // pages of the same category) rather than topping up with unrelated
 // keywords, since the buyer picked it specifically to see only that.
+//
+// Each attempt is a real browser navigation (see _lib/scraper1688.js),
+// far slower than the old API's JSON calls, so attempts run concurrently
+// rather than one after another - MAX_ATTEMPTS is kept modest to bound
+// how many browser tabs a single request opens at once.
 const DEFAULT_KEYWORDS = ['phone case', 'keychain', 'usb cable', 'bluetooth earphone', 'power bank', 'memory card', 'watch', 'sunglasses', 'backpack', 'toy']
 const ITEMS_LIMIT = 24
-const MAX_ATTEMPTS = 5
+const MAX_ATTEMPTS = 3
 
 function randomPage() {
   return Math.floor(Math.random() * 3) + 1 // 1-3, so a reload of the same keyword/category surfaces different items
@@ -34,38 +39,42 @@ export default async function handler(req, res) {
 
   const categoryId = (req.query.categoryId || '').toString().trim()
   const requested = (req.query.keyword || '').toString().trim()
+  const cacheKey = categoryId ? `category:${categoryId}` : requested || null
+
+  const attempts = Array.from({ length: MAX_ATTEMPTS }, (_, attempt) =>
+    categoryId
+      ? { term: categoryId, page: attempt + 1, isCategory: true }
+      : { term: attempt === 0 && requested ? requested : randomDefaultKeyword(), page: randomPage(), isCategory: false }
+  )
+
+  const results = await Promise.allSettled(
+    attempts.map(({ term, page, isCategory }) =>
+      (isCategory ? listByCategory(term, page, { timeoutMs: 12000 }) : searchItems(term, page, { timeoutMs: 12000 })).then((raw) => ({
+        term,
+        normalized: normalizeSearchResponse(raw, term, 1)
+      }))
+    )
+  )
+
   const collected = []
   const seen = new Set()
   let anyFailed = false
-  const cacheKey = categoryId ? `category:${categoryId}` : requested || null
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS && collected.length < ITEMS_LIMIT; attempt++) {
-    try {
-      let raw
-      let normalized
-      if (categoryId) {
-        raw = await listByCategory(categoryId, attempt + 1, { maxRetries: 1, timeoutMs: 8000 })
-        normalized = normalizeSearchResponse(raw, categoryId, 1)
-      } else {
-        const keyword = attempt === 0 && requested ? requested : randomDefaultKeyword()
-        raw = await searchItems(keyword, randomPage(), { maxRetries: 1, timeoutMs: 8000 })
-        normalized = normalizeSearchResponse(raw, keyword, 1)
-      }
-      for (const item of normalized.items) {
-        if (!seen.has(item.itemId)) {
-          seen.add(item.itemId)
-          collected.push(item)
-        }
-      }
-      if (normalized.items.length && cacheKey) {
-        await setCachedSearch(cacheKey, normalized)
-      }
-      // A category with fewer than ITEMS_LIMIT products would otherwise
-      // spin through all MAX_ATTEMPTS pages for nothing once exhausted.
-      if (categoryId && !normalized.items.length) break
-    } catch (err) {
+  for (const result of results) {
+    if (result.status !== 'fulfilled') {
       anyFailed = true
-      console.error(`trending: ${categoryId ? `category "${categoryId}"` : `keyword "${requested}"`} failed`, err.message)
+      console.error(`trending: ${categoryId ? `category "${categoryId}"` : `keyword "${requested}"`} failed`, result.reason?.message)
+      continue
+    }
+    const { normalized } = result.value
+    for (const item of normalized.items) {
+      if (!seen.has(item.itemId)) {
+        seen.add(item.itemId)
+        collected.push(item)
+      }
+    }
+    if (normalized.items.length && cacheKey) {
+      await setCachedSearch(cacheKey, normalized)
     }
   }
 

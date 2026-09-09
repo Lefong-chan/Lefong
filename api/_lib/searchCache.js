@@ -1,10 +1,11 @@
-// The RapidAPI upstream is on a rate-limited plan and occasionally slow, so
-// a live failure (429, timeout) shouldn't mean an empty page for the buyer.
-// This stores the last successful normalized search result per keyword in
-// Firebase Realtime Database (already used everywhere else in this app) so
-// search.js and trending.js can fall back to it instead of showing nothing.
-// Best-effort throughout: a cache read/write failure must never break the
-// actual request.
+// Scraping 1688 live (see _lib/scraper1688.js) is slower and less reliable
+// than a normal API call - a page can time out, or 1688 can throw up an
+// anti-bot check - so a live failure shouldn't mean an empty page for the
+// buyer. This stores the last successful normalized search result per
+// keyword in Firebase Realtime Database (already used everywhere else in
+// this app) so search.js and trending.js can fall back to it instead of
+// showing nothing. Best-effort throughout: a cache read/write failure must
+// never break the actual request.
 
 import { adminDb } from './firebaseAdmin.js'
 

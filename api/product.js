@@ -1,4 +1,4 @@
-import { getItemDetail } from './_lib/cjdropshipping.js'
+import { getItemDetail } from './_lib/scraper1688.js'
 import { normalizeDetailResponse } from './_lib/normalize.js'
 
 export default async function handler(req, res) {
@@ -14,10 +14,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const raw = await getItemDetail(itemId)
+    // Same ?debug=1 diagnostic hatch as api/search.js - see there.
+    const debug = req.query.debug === '1'
+    const raw = await getItemDetail(itemId, { timeoutMs: 12000, debug })
 
-    // Same temporary diagnostic escape hatch as api/search.js - see there.
-    if (req.query.raw === '1') {
+    if (debug) {
       res.setHeader('Cache-Control', 'no-store')
       res.status(200).json(raw)
       return
@@ -32,12 +33,12 @@ export default async function handler(req, res) {
     res.status(200).json(normalized)
   } catch (err) {
     console.error('product detail error', err)
-    if (err.rateLimited) {
-      res.status(429).json({ error: err.message })
+    if (err.blocked) {
+      res.status(503).json({ error: '1688 is temporarily blocking automated browsing - try again shortly', detail: err.message })
       return
     }
-    if (err.upstreamBusinessError) {
-      res.status(503).json({ error: 'Purchase unavailable right now - contact the administrator', detail: err.message })
+    if (err.timedOut) {
+      res.status(504).json({ error: 'Timed out fetching this product from 1688', detail: err.message })
       return
     }
     res.status(502).json({ error: 'Could not fetch the product details', detail: err.message })

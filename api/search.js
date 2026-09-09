@@ -1,4 +1,4 @@
-import { searchItems } from './_lib/cjdropshipping.js'
+import { searchItems } from './_lib/scraper1688.js'
 import { normalizeSearchResponse } from './_lib/normalize.js'
 import { getCachedSearch, setCachedSearch } from './_lib/searchCache.js'
 
@@ -17,13 +17,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const raw = await searchItems(keyword, page, { timeoutMs: 8000, maxRetries: 1 })
+    // ?debug=1 reports what the scraper actually saw on the page (title,
+    // a body text sample, how many product cards matched) instead of the
+    // normalized result - use it to fix selectors in _lib/scraper1688.js
+    // if 1688 changes its markup or the search results page turns out to
+    // differ from the homepage feed the current selectors were built from.
+    const debug = req.query.debug === '1'
+    const raw = await searchItems(keyword, page, { timeoutMs: 12000, debug })
 
-    // Temporary diagnostic escape hatch: ?raw=1 returns CJ Dropshipping's
-    // untouched response so the field-name mapping in _lib/normalize.js
-    // can be corrected against the real payload shape. Safe to keep - it
-    // never touches the token, only what CJ already sent back.
-    if (req.query.raw === '1') {
+    if (debug) {
       res.setHeader('Cache-Control', 'no-store')
       res.status(200).json(raw)
       return
@@ -49,12 +51,12 @@ export default async function handler(req, res) {
       }
     }
 
-    if (err.rateLimited) {
-      res.status(429).json({ error: err.message })
+    if (err.blocked) {
+      res.status(503).json({ error: '1688 is temporarily blocking automated browsing - try again shortly', detail: err.message })
       return
     }
-    if (err.upstreamBusinessError) {
-      res.status(503).json({ error: 'Purchase unavailable right now - contact the administrator', detail: err.message })
+    if (err.timedOut) {
+      res.status(504).json({ error: 'Timed out fetching results from 1688', detail: err.message })
       return
     }
     res.status(502).json({ error: 'Could not fetch the product list', detail: err.message })
