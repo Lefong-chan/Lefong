@@ -17,6 +17,20 @@ import { chromium } from 'playwright-core'
 
 let browserPromise = null
 
+// 1688 flatly refused a request with a "访问被拒绝" (access denied) anti-bot
+// page even with a correct URL - most likely fingerprinting the browser as
+// automated rather than (or in addition to) blocking the IP outright.
+// Dropping --enable-automation and adding --disable-blink-features=
+// AutomationControlled are what make navigator.webdriver read back false
+// instead of true; combined with the addInitScript patches in withPage()
+// below, this is the standard free/no-proxy mitigation for that kind of
+// detection. It's not guaranteed to get past Alibaba's WAF specifically -
+// if requests still come back "访问被拒绝" after this, the block is more
+// likely IP-reputation-based (Vercel's serverless IPs are shared,
+// datacenter-range addresses), which no in-browser change can fix - only
+// routing through a different (e.g. residential) IP would.
+const STEALTH_ARGS = ['--disable-blink-features=AutomationControlled']
+
 async function launchBrowser() {
   const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
 
@@ -31,13 +45,13 @@ async function launchBrowser() {
     const { default: sparticuzChromium } = await import('@sparticuz/chromium')
     sparticuzChromium.setGraphicsMode = false // no WebGL needed for scraping - fewer libs required
     return chromium.launch({
-      args: sparticuzChromium.args,
+      args: [...STEALTH_ARGS, ...sparticuzChromium.args.filter((a) => a !== '--enable-automation')],
       executablePath: await sparticuzChromium.executablePath(),
       headless: true
     })
   }
 
-  return chromium.launch({ headless: true })
+  return chromium.launch({ headless: true, args: STEALTH_ARGS })
 }
 
 async function getBrowser() {
@@ -55,10 +69,35 @@ async function getBrowser() {
   return browser
 }
 
-const MOBILE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+// A real Android Chrome UA rather than a spoofed iPhone Safari one - the
+// browser is actually Chromium, and Chromium always sends its own
+// sec-ch-ua/sec-ch-ua-mobile/sec-ch-ua-platform Client Hints headers
+// regardless of what the UA string claims. Real Safari never sends those
+// headers at all, so an iPhone UA paired with Chromium's Client Hints is
+// an inconsistency anti-bot systems can check for directly; an Android
+// Chrome UA matches what the browser actually is.
+const MOBILE_UA =
+  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36'
 
 function isClosedBrowserError(err) {
   return /has been closed|Target closed|Browser closed/i.test(err?.message || '')
+}
+
+// Patches the handful of properties puppeteer-extra-plugin-stealth-style
+// checks look at to tell a headless/automated Chromium apart from a real
+// one. Runs before any of the page's own scripts (addInitScript), so code
+// on the page sees these as if they were the browser's real values from
+// the start - it can still be detected in other ways (Alibaba's WAF is one
+// of the more sophisticated ones), but this is the standard free mitigation
+// for the common checks.
+function stealthInitScript() {
+  Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined })
+  window.chrome = { runtime: {} }
+  Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] })
+  Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'] })
+  const originalQuery = window.navigator.permissions.query
+  window.navigator.permissions.query = (parameters) =>
+    parameters.name === 'notifications' ? Promise.resolve({ state: Notification.permission }) : originalQuery(parameters)
 }
 
 // One throwaway context+page per scrape call, closed by the caller when
@@ -76,9 +115,10 @@ export async function withPage(fn, { retrying = false } = {}) {
   try {
     context = await browser.newContext({
       userAgent: MOBILE_UA,
-      viewport: { width: 390, height: 844 },
+      viewport: { width: 412, height: 915 }, // matches the Pixel 7 in MOBILE_UA
       locale: 'zh-CN'
     })
+    await context.addInitScript(stealthInitScript)
     const page = await context.newPage()
     return await fn(page)
   } catch (err) {
