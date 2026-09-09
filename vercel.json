@@ -3,9 +3,9 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/search.js": { "memory": 2048, "maxDuration": 60 },
-    "api/trending.js": { "memory": 2048, "maxDuration": 60 },
-    "api/product.js": { "memory": 2048, "maxDuration": 60 },
+    "api/search.js": { "memory": 3009, "maxDuration": 60 },
+    "api/trending.js": { "memory": 3009, "maxDuration": 60 },
+    "api/product.js": { "memory": 3009, "maxDuration": 60 },
     "api/categories.js": { "memory": 256, "maxDuration": 15 },
     "api/image.js": { "memory": 256, "maxDuration": 15 },
     "api/orders/*.js": { "memory": 256, "maxDuration": 15 }

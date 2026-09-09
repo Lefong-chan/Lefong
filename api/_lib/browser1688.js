@@ -57,20 +57,37 @@ async function getBrowser() {
 
 const MOBILE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
 
-// One throwaway context+page per scrape call, closed by the caller - keeps
-// concurrent requests (trending.js fires several in parallel) from sharing
-// cookies/state, without paying the full browser launch cost each time.
-export async function withPage(fn) {
+function isClosedBrowserError(err) {
+  return /has been closed|Target closed|Browser closed/i.test(err?.message || '')
+}
+
+// One throwaway context+page per scrape call, closed by the caller when
+// done - keeps separate requests from sharing cookies/state without paying
+// the full browser launch cost each time. @sparticuz/chromium runs in
+// --single-process mode (needed to fit serverless memory limits), so a
+// renderer crash can take the whole browser down instead of just one page;
+// callers of this module never run scrapes concurrently against each other
+// for that reason (see api/trending.js), but a crash can still happen
+// mid-request - retried once against a freshly launched browser rather
+// than failing the request outright.
+export async function withPage(fn, { retrying = false } = {}) {
   const browser = await getBrowser()
-  const context = await browser.newContext({
-    userAgent: MOBILE_UA,
-    viewport: { width: 390, height: 844 },
-    locale: 'zh-CN'
-  })
+  let context
   try {
+    context = await browser.newContext({
+      userAgent: MOBILE_UA,
+      viewport: { width: 390, height: 844 },
+      locale: 'zh-CN'
+    })
     const page = await context.newPage()
     return await fn(page)
+  } catch (err) {
+    if (!retrying && isClosedBrowserError(err)) {
+      browserPromise = null
+      return withPage(fn, { retrying: true })
+    }
+    throw err
   } finally {
-    await context.close().catch(() => {})
+    if (context) await context.close().catch(() => {})
   }
 }
