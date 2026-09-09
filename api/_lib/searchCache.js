@@ -1,15 +1,20 @@
-// Scraping 1688 live (see _lib/scraper1688.js) is slower and less reliable
-// than a normal API call - a page can time out, or 1688 can throw up an
-// anti-bot check - so a live failure shouldn't mean an empty page for the
-// buyer. This stores the last successful normalized search result per
-// keyword in Firebase Realtime Database (already used everywhere else in
-// this app) so search.js and trending.js can fall back to it instead of
-// showing nothing. Best-effort throughout: a cache read/write failure must
-// never break the actual request.
+// Product data no longer comes from a live scrape inside the Vercel
+// function (1688's anti-bot system flatly blocked requests from Vercel's
+// shared serverless IPs - see scraper/README.md for the full story).
+// Instead, a bot the site owner runs on their own machine (scraper/index.js)
+// periodically searches 1688 and writes normalized results here, in
+// Firebase Realtime Database (already used everywhere else in this app).
+// api/search.js and api/trending.js only ever read from this cache now -
+// there's no live fallback path left, so a keyword nobody has scraped yet
+// (or one whose entry has aged out) genuinely comes back empty until the
+// next scraper run covers it.
 
 import { adminDb } from './firebaseAdmin.js'
 
-const MAX_AGE_MS = 48 * 60 * 60 * 1000 // don't serve a fallback older than this
+// The scraper bot runs on demand rather than as an always-on server, so an
+// entry can legitimately be a day or more old - this just needs to be long
+// enough that a normal gap between runs doesn't make a keyword vanish.
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
 function keyFor(keyword) {
   // RTDB keys can't contain . $ # [ ] / - hex-encode the raw (possibly
