@@ -53,10 +53,13 @@ export default async function handler(req, res) {
       let raw
       if (categoryId) {
         term = categoryId
-        raw = await listByCategory(categoryId, attempt + 1, { timeoutMs: 12000 })
+        // retry: false - a failed attempt here just moves on to the next
+        // page/keyword already, so retrying in place would only risk
+        // doubling this attempt's time against the function's time budget.
+        raw = await listByCategory(categoryId, attempt + 1, { timeoutMs: 12000, retry: false })
       } else {
         term = attempt === 0 && requested ? requested : randomDefaultKeyword()
-        raw = await searchItems(term, randomPage(), { timeoutMs: 12000 })
+        raw = await searchItems(term, randomPage(), { timeoutMs: 12000, retry: false })
       }
       const normalized = normalizeSearchResponse(raw, term, 1)
       for (const item of normalized.items) {
