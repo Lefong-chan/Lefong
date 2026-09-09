@@ -15,10 +15,13 @@ import { getCachedSearch, setCachedSearch } from './_lib/searchCache.js'
 // pages of the same category) rather than topping up with unrelated
 // keywords, since the buyer picked it specifically to see only that.
 //
-// Each attempt is a real browser navigation (see _lib/scraper1688.js),
-// far slower than the old API's JSON calls, so attempts run concurrently
-// rather than one after another - MAX_ATTEMPTS is kept modest to bound
-// how many browser tabs a single request opens at once.
+// Attempts run one at a time, not concurrently: @sparticuz/chromium runs
+// in --single-process mode to fit serverless memory limits, which means
+// several pages navigating at once inside that one process can crash the
+// whole browser instead of just the one tab - taking every in-flight
+// attempt down with it (that's what "Target page, context or browser has
+// been closed" errors on every attempt of the same request meant). One
+// page at a time avoids that at the cost of latency.
 const DEFAULT_KEYWORDS = ['phone case', 'keychain', 'usb cable', 'bluetooth earphone', 'power bank', 'memory card', 'watch', 'sunglasses', 'backpack', 'toy']
 const ITEMS_LIMIT = 24
 const MAX_ATTEMPTS = 3
@@ -39,42 +42,38 @@ export default async function handler(req, res) {
 
   const categoryId = (req.query.categoryId || '').toString().trim()
   const requested = (req.query.keyword || '').toString().trim()
-  const cacheKey = categoryId ? `category:${categoryId}` : requested || null
-
-  const attempts = Array.from({ length: MAX_ATTEMPTS }, (_, attempt) =>
-    categoryId
-      ? { term: categoryId, page: attempt + 1, isCategory: true }
-      : { term: attempt === 0 && requested ? requested : randomDefaultKeyword(), page: randomPage(), isCategory: false }
-  )
-
-  const results = await Promise.allSettled(
-    attempts.map(({ term, page, isCategory }) =>
-      (isCategory ? listByCategory(term, page, { timeoutMs: 12000 }) : searchItems(term, page, { timeoutMs: 12000 })).then((raw) => ({
-        term,
-        normalized: normalizeSearchResponse(raw, term, 1)
-      }))
-    )
-  )
-
   const collected = []
   const seen = new Set()
   let anyFailed = false
+  const cacheKey = categoryId ? `category:${categoryId}` : requested || null
 
-  for (const result of results) {
-    if (result.status !== 'fulfilled') {
-      anyFailed = true
-      console.error(`trending: ${categoryId ? `category "${categoryId}"` : `keyword "${requested}"`} failed`, result.reason?.message)
-      continue
-    }
-    const { normalized } = result.value
-    for (const item of normalized.items) {
-      if (!seen.has(item.itemId)) {
-        seen.add(item.itemId)
-        collected.push(item)
+  for (let attempt = 0; attempt < MAX_ATTEMPTS && collected.length < ITEMS_LIMIT; attempt++) {
+    try {
+      let term
+      let raw
+      if (categoryId) {
+        term = categoryId
+        raw = await listByCategory(categoryId, attempt + 1, { timeoutMs: 12000 })
+      } else {
+        term = attempt === 0 && requested ? requested : randomDefaultKeyword()
+        raw = await searchItems(term, randomPage(), { timeoutMs: 12000 })
       }
-    }
-    if (normalized.items.length && cacheKey) {
-      await setCachedSearch(cacheKey, normalized)
+      const normalized = normalizeSearchResponse(raw, term, 1)
+      for (const item of normalized.items) {
+        if (!seen.has(item.itemId)) {
+          seen.add(item.itemId)
+          collected.push(item)
+        }
+      }
+      if (normalized.items.length && cacheKey) {
+        await setCachedSearch(cacheKey, normalized)
+      }
+      // A category with fewer than ITEMS_LIMIT products would otherwise
+      // spin through all MAX_ATTEMPTS pages for nothing once exhausted.
+      if (categoryId && !normalized.items.length) break
+    } catch (err) {
+      anyFailed = true
+      console.error(`trending: ${categoryId ? `category "${categoryId}"` : `keyword "${requested}"`} failed`, err.message)
     }
   }
 
