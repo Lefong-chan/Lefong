@@ -20,6 +20,30 @@ writes normalized results to Firebase; the site's `/api/search`,
 `/api/trending` and `/api/product` endpoints just read whatever it last
 wrote - no live scraping happens on Vercel.
 
+## What to expect while it's still catching up
+
+1688 only tolerates a handful of requests per run before throwing up a
+CAPTCHA wall ("验证码拦截") - a real run showed the very first search and
+first detail page succeed, then everything after blocked. So each run
+only works through a small batch of keywords (`SCRAPER_BATCH_SIZE`,
+default 3) and a couple of detail pages each (`SCRAPER_DETAILS_PER_KEYWORD`,
+default 2), stopping immediately at the first block instead of wasting
+the rest of the run. It prioritizes keywords that have never been
+indexed yet, so repeated runs gradually work through the full list
+(`api/_lib/scrapeTargets.js`) rather than re-rolling the same few.
+
+Until that catches up, expect:
+
+- **The site shows the same handful of products for a while** - only the
+  keywords that have actually succeeded have anything to show; the
+  homepage/search draw from whatever's cached, which starts out being
+  just one or two keywords' worth. Widens as more runs succeed.
+- **A newly-found item shows up with just its search-card info at
+  first** (title/price/image/link, no extra photos or description) -
+  its own detail page is only fetched once the batch gets to it, on this
+  run or a later one; see `_lib/normalize.js` for the exact fallback
+  shape.
+
 ## Option A: GitHub Actions (no PC/phone setup needed)
 
 `.github/workflows/scrape-1688.yml` runs this bot on GitHub's own servers

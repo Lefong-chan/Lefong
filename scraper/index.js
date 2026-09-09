@@ -1,31 +1,59 @@
-// The 1688 scraper bot - run this on your own machine (a home PC, a phone
-// via Termux, a Raspberry Pi, ...), not on Vercel. See README.md for why.
+// The 1688 scraper bot - see README.md for where to run this and why.
 //
 // Usage:
 //   npm install && npx playwright install chromium   (one-time setup)
-//   node index.js            run one full pass over every keyword, then exit
-//   node index.js --loop     run forever, sleeping INTERVAL_HOURS between passes
+//   node index.js            one batch of keywords, then exits
+//   node index.js --loop     runs forever, sleeping INTERVAL_HOURS between batches
+//
+// 1688 tolerates only a handful of requests from one IP/session before
+// throwing up a CAPTCHA wall ("验证码拦截") - a real run showed the very
+// first search and first detail page succeed, then everything after
+// blocked. So each invocation only works a small BATCH_SIZE of keywords
+// (prioritizing ones never indexed before) and stops at the first sign of
+// a block instead of burning through the rest of the list uselessly.
+// Coverage of the full keyword list builds up gradually across many
+// separate runs instead of one long one - each GitHub Actions run gets a
+// fresh VM (and likely a fresh IP), so running this frequently in small
+// batches works around the per-session limit better than a single big
+// sweep would.
 
 import 'dotenv/config'
 import { CATEGORIES, DEFAULT_KEYWORDS } from '../api/_lib/scrapeTargets.js'
 import { normalizeSearchResponse, normalizeDetailResponse } from '../api/_lib/normalize.js'
-import { setCachedSearch } from '../api/_lib/searchCache.js'
-import { setCachedProduct } from '../api/_lib/productCache.js'
+import { getCachedSearch, setCachedSearch } from '../api/_lib/searchCache.js'
+import { getCachedProduct, setCachedProduct } from '../api/_lib/productCache.js'
 import { scrapeSearch, scrapeDetail } from './lib/scrape1688.js'
 import { closeBrowser } from './browser.js'
 
 const INTERVAL_HOURS = Number(process.env.SCRAPER_INTERVAL_HOURS || 6)
+const BATCH_SIZE = Number(process.env.SCRAPER_BATCH_SIZE || 3)
+const DETAILS_PER_KEYWORD = Number(process.env.SCRAPER_DETAILS_PER_KEYWORD || 2)
 const KEYWORDS = [...DEFAULT_KEYWORDS, ...CATEGORIES.map((c) => c.id)]
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// Random delay between requests so the bot doesn't hammer 1688 at a
-// suspiciously constant rate - both out of courtesy and because a burst
-// of identical, evenly-spaced requests is itself a bot signal.
+// Long, randomized gaps between requests - both out of courtesy and
+// because a burst of identical, evenly-spaced requests is itself a bot
+// signal. Doesn't fully avoid the block seen in practice, but every bit
+// of extra caution helps stretch how much a session can do before it
+// trips 1688's threshold.
 function randomDelay(minMs, maxMs) {
   return sleep(minMs + Math.random() * (maxMs - minMs))
+}
+
+class Blocked extends Error {}
+
+async function pickBatch() {
+  // Prioritize keywords with no cache entry at all (never successfully
+  // indexed) so a run makes forward progress instead of re-rolling ones
+  // already covered; only falls back to randomly refreshing already-known
+  // keywords once every keyword has at least something cached.
+  const statuses = await Promise.all(KEYWORDS.map(async (kw) => ({ kw, cached: await getCachedSearch(kw) })))
+  const neverIndexed = statuses.filter((s) => !s.cached).map((s) => s.kw)
+  const pool = neverIndexed.length ? neverIndexed : KEYWORDS
+  return [...pool].sort(() => Math.random() - 0.5).slice(0, BATCH_SIZE)
 }
 
 async function indexKeyword(keyword) {
@@ -35,6 +63,7 @@ async function indexKeyword(keyword) {
     raw = await scrapeSearch(keyword)
   } catch (err) {
     console.log(`FAILED (${err.message})`)
+    if (err.blocked) throw new Blocked(err.message)
     return []
   }
   const normalized = normalizeSearchResponse({ items: raw }, keyword, 1)
@@ -44,6 +73,18 @@ async function indexKeyword(keyword) {
   }
   await setCachedSearch(keyword, normalized)
   console.log(`${normalized.items.length} items`)
+
+  // A brand-new item gets an immediate placeholder detail entry straight
+  // from its search-result summary (title/price/image already known, no
+  // extra request needed) so it's viewable right away rather than 404ing
+  // until its own detail page happens to get scraped. Never overwrites an
+  // item that already has a real detail entry.
+  for (const item of normalized.items) {
+    if (!(await getCachedProduct(item.itemId))) {
+      await setCachedProduct(item.itemId, normalizeDetailResponse(item))
+    }
+  }
+
   return normalized.items
 }
 
@@ -60,27 +101,50 @@ async function indexProductDetail(itemId) {
     console.log('ok')
   } catch (err) {
     console.log(`FAILED (${err.message})`)
+    if (err.blocked) throw new Blocked(err.message)
   }
+}
+
+// Only items still on just their search-result placeholder (no
+// description yet) are worth spending a detail request on - re-fetching
+// an already-enriched item wastes a request for no benefit.
+async function pickDetailTargets(items) {
+  const candidates = []
+  for (const item of items) {
+    const cached = await getCachedProduct(item.itemId)
+    if (!cached?.description) candidates.push(item.itemId)
+    if (candidates.length >= DETAILS_PER_KEYWORD) break
+  }
+  return candidates
 }
 
 async function runOnce() {
   const startedAt = Date.now()
-  const seenItemIds = new Set()
+  const batch = await pickBatch()
+  console.log(`Batch: ${batch.join(', ')}`)
+  let indexed = 0
 
-  for (const keyword of KEYWORDS) {
-    const items = await indexKeyword(keyword)
-    await randomDelay(3000, 8000)
+  try {
+    for (const keyword of batch) {
+      const items = await indexKeyword(keyword)
+      indexed += items.length
+      await randomDelay(15000, 30000)
 
-    for (const item of items) {
-      if (seenItemIds.has(item.itemId)) continue
-      seenItemIds.add(item.itemId)
-      await indexProductDetail(item.itemId)
-      await randomDelay(2000, 5000)
+      for (const itemId of await pickDetailTargets(items)) {
+        await indexProductDetail(itemId)
+        await randomDelay(10000, 20000)
+      }
+    }
+  } catch (err) {
+    if (err instanceof Blocked) {
+      console.log(`\n1688 blocked this session - stopping the batch early (${err.message}).`)
+    } else {
+      throw err
     }
   }
 
   const minutes = ((Date.now() - startedAt) / 60000).toFixed(1)
-  console.log(`\nDone - indexed ${seenItemIds.size} products across ${KEYWORDS.length} keywords in ${minutes} min.`)
+  console.log(`\nDone - touched ${indexed} items across ${batch.length} keyword(s) in ${minutes} min.`)
 }
 
 async function main() {
@@ -90,7 +154,7 @@ async function main() {
     do {
       await runOnce()
       if (loop) {
-        console.log(`Sleeping ${INTERVAL_HOURS}h before the next pass...\n`)
+        console.log(`Sleeping ${INTERVAL_HOURS}h before the next batch...\n`)
         await sleep(INTERVAL_HOURS * 60 * 60 * 1000)
       }
     } while (loop)
