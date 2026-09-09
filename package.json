@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^131.0.1",
+    "@sparticuz/chromium": "^152.0.0",
     "dompurify": "^3.1.7",
     "firebase": "^10.14.1",
     "firebase-admin": "^12.7.0",
