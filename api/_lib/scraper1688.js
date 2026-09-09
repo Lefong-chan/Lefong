@@ -128,8 +128,15 @@ function extractDetail() {
   }
 }
 
+// 1688's mobile site often tries to bounce visitors to an "open in app"
+// interstitial via a client-side redirect right after the page loads -
+// waiting for "domcontentloaded" can catch that redirect mid-flight and
+// surface it as a net::ERR_ABORTED failure on the original navigation.
+// "commit" resolves as soon as the response starts arriving, before any
+// of that redirect JS has had a chance to run, and the waitForSelector
+// call right after gives the (possibly-redirected) page time to settle.
 async function navigateAndCheck(page, url, timeoutMs) {
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs })
+  await page.goto(url, { waitUntil: 'commit', timeout: timeoutMs })
   // Best-effort settle for the client-side XHR that fills in the product
   // grid - not a hard requirement, some content may already be there.
   await page.waitForSelector('a[href*="/offer/"]', { timeout: Math.min(timeoutMs, 8000) }).catch(() => {})
@@ -144,21 +151,41 @@ async function navigateAndCheck(page, url, timeoutMs) {
   return { title, bodyText }
 }
 
-async function scrapeSearch(keyword, page, { timeoutMs = 12000, debug = false } = {}) {
-  return withTimeout(
-    withPage(async (browserPage) => {
-      const url = `https://m.1688.com/offer/search.htm?keywords=${encodeURIComponent(keyword)}&beginPage=${page}`
-      const { title, bodyText } = await navigateAndCheck(browserPage, url, timeoutMs)
-      const items = await browserPage.evaluate(extractCards)
+function isNavigationError(err) {
+  return err?.timedOut || /net::ERR_|ERR_ABORTED/.test(err?.message || '')
+}
 
-      if (debug) {
-        return { url, pageTitle: title, bodySample: bodyText.slice(0, 1000), matchedCards: items.length, items }
-      }
-      return { items }
-    }),
-    timeoutMs + 4000,
-    '1688 search'
-  )
+// A single navigation failure (net::ERR_ABORTED from 1688's own app-download
+// interstitial redirect, a timeout on a slow route, etc.) is retried once
+// with a fresh page/context rather than failing outright - `retry: false`
+// is used by trending.js, which already tries several keywords/pages in a
+// row and can't afford doubling its per-attempt time budget on top of that.
+async function withNavigationRetry(run, retry) {
+  try {
+    return await run()
+  } catch (err) {
+    if (retry && isNavigationError(err)) return run()
+    throw err
+  }
+}
+
+async function scrapeSearch(keyword, page, { timeoutMs = 12000, debug = false, retry = true } = {}) {
+  const run = () =>
+    withTimeout(
+      withPage(async (browserPage) => {
+        const url = `https://m.1688.com/offer/search.htm?keywords=${encodeURIComponent(keyword)}&beginPage=${page}`
+        const { title, bodyText } = await navigateAndCheck(browserPage, url, timeoutMs)
+        const items = await browserPage.evaluate(extractCards)
+
+        if (debug) {
+          return { url, pageTitle: title, bodySample: bodyText.slice(0, 1000), matchedCards: items.length, items }
+        }
+        return { items }
+      }),
+      timeoutMs + 4000,
+      '1688 search'
+    )
+  return withNavigationRetry(run, retry)
 }
 
 export function searchItems(keyword, page = 1, opts) {
@@ -172,21 +199,23 @@ export function listByCategory(categoryId, page = 1, opts) {
   return scrapeSearch(categoryId, page, opts)
 }
 
-export function getItemDetail(itemId, { timeoutMs = 12000, debug = false } = {}) {
-  return withTimeout(
-    withPage(async (browserPage) => {
-      const url = `https://m.1688.com/offer/${encodeURIComponent(itemId)}.html`
-      const { title, bodyText } = await navigateAndCheck(browserPage, url, timeoutMs)
-      const detail = await browserPage.evaluate(extractDetail)
+export function getItemDetail(itemId, { timeoutMs = 12000, debug = false, retry = true } = {}) {
+  const run = () =>
+    withTimeout(
+      withPage(async (browserPage) => {
+        const url = `https://m.1688.com/offer/${encodeURIComponent(itemId)}.html`
+        const { title, bodyText } = await navigateAndCheck(browserPage, url, timeoutMs)
+        const detail = await browserPage.evaluate(extractDetail)
 
-      if (debug) {
-        return { url, pageTitle: title, bodySample: bodyText.slice(0, 1000), detail }
-      }
-      return { itemId, ...detail }
-    }),
-    timeoutMs + 4000,
-    '1688 product detail'
-  )
+        if (debug) {
+          return { url, pageTitle: title, bodySample: bodyText.slice(0, 1000), detail }
+        }
+        return { itemId, ...detail }
+      }),
+      timeoutMs + 4000,
+      '1688 product detail'
+    )
+  return withNavigationRetry(run, retry)
 }
 
 // 1688 has no simple public "category tree" page reachable from the mobile
