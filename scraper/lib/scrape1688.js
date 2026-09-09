@@ -50,6 +50,21 @@ function extractCards() {
     return el ? el.textContent.trim() : ''
   }
 
+  // Mobile 1688 lazy-loads card images: `src` often holds a blank
+  // placeholder (or a data: URI) until the image scrolls into view, which
+  // never happens in a headless browser that doesn't scroll - the real
+  // URL is already present in one of these data-* attributes from the
+  // start, so those are checked first.
+  function realImageSrc(imgEl) {
+    if (!imgEl) return ''
+    for (const attr of ['data-src', 'data-original', 'data-lazy-src', 'data-ks-lazyload', 'data-echo']) {
+      const val = imgEl.getAttribute(attr)
+      if (val && !val.startsWith('data:')) return val
+    }
+    const src = imgEl.getAttribute('src') || ''
+    return src.startsWith('data:') ? '' : src
+  }
+
   const anchors = Array.from(document.querySelectorAll('a[href*="/offer/"]'))
   const seen = new Set()
   const cards = []
@@ -74,7 +89,7 @@ function extractCards() {
     cards.push({
       itemId,
       title,
-      image: imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src') || '',
+      image: realImageSrc(imgEl),
       price,
       sales: firstNumber(soldEl?.textContent),
       shopName: text(shopEl),
@@ -92,6 +107,18 @@ function extractDetail() {
     return m ? parseFloat(m[0]) : null
   }
 
+  // Same lazy-load reasoning as extractCards() above - duplicated rather
+  // than shared since both functions run standalone inside the page.
+  function realImageSrc(imgEl) {
+    if (!imgEl) return ''
+    for (const attr of ['data-src', 'data-original', 'data-lazy-src', 'data-ks-lazyload', 'data-echo']) {
+      const val = imgEl.getAttribute(attr)
+      if (val && !val.startsWith('data:')) return val
+    }
+    const src = imgEl.getAttribute('src') || ''
+    return src.startsWith('data:') ? '' : src
+  }
+
   const ogTitle = document.querySelector('meta[property="og:title"]')?.content
   const ogImage = document.querySelector('meta[property="og:image"]')?.content
   const titleEl = document.querySelector('[class*="title"]')
@@ -100,7 +127,7 @@ function extractDetail() {
   const descEl = document.querySelector('[class*="description"], [class*="detail-content"], [class*="rich-text"]')
 
   const images = Array.from(document.querySelectorAll('[class*="thumb"] img, [class*="gallery"] img, [class*="main-img"] img'))
-    .map((img) => img.getAttribute('src') || img.getAttribute('data-src'))
+    .map(realImageSrc)
     .filter(Boolean)
 
   return {

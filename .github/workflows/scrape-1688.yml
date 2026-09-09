@@ -18,7 +18,14 @@ name: Scrape 1688
 
 on:
   schedule:
-    - cron: '0 */12 * * *' # every 12 hours - widen this if minute usage allows it
+    # Runs are small on purpose now (see index.js) - a few keywords and a
+    # couple of detail pages per run, stopping at the first sign of a
+    # 1688 block - so running often in small batches covers the full
+    # keyword list gradually across many fresh-IP runs, rather than one
+    # long run that gets blocked partway through. Roughly ~5 min/run, so
+    # every 2h stays well under the 2000 free minutes/month a private repo
+    # gets (public repos have no Actions minute limit at all).
+    - cron: '0 */2 * * *'
   workflow_dispatch: {}
 
 jobs:
