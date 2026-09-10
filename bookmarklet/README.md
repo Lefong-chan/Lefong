@@ -32,16 +32,22 @@ tapped.)
 
 **3. Save it as a bookmark, with that text as the URL.** Browsers block
 typing/pasting a `javascript:` link directly into the main address bar
-(security measure), but editing an *existing* bookmark's URL still works
-everywhere:
+(security measure), but editing an *existing* bookmark's URL still works:
 
-- **Android Chrome:** bookmark any page first (star icon, or menu ->
-  "Add to bookmarks"). Then menu (⋮) -> Bookmarks -> find that bookmark ->
-  tap the three dots next to it -> Edit -> replace the URL field with the
-  copied text -> tap the back arrow to save. Name it something like "1688
-  -> Lefong".
-- **iOS Safari:** bookmark any page (share icon -> Add Bookmark). Then
-  Bookmarks -> Edit -> tap that bookmark -> replace the URL -> Done.
+- **Android Chrome does NOT work for this** - confirmed by testing: the
+  bookmark saves fine (URL and all), but tapping it from the Bookmarks
+  list silently does nothing, no popup, no error. Chrome appears to
+  block running a `javascript:` bookmarklet from its bookmarks UI
+  entirely, with no workaround found.
+- **Firefox for Android works** (confirmed) - install it from the Play
+  Store if needed. Bookmark any page first (star icon, or menu -> "Save
+  to bookmark"). Then menu (☰) -> Bookmarks -> find that bookmark -> "..."
+  next to it -> Edit -> replace the URL field with the copied text ->
+  Save. Name it something like "1688 -> Lefong".
+- **iOS Safari:** not tested here, but bookmarklets are generally
+  expected to work the same way as Firefox's: bookmark any page (share
+  icon -> Add Bookmark), then Bookmarks -> Edit -> tap that bookmark ->
+  replace the URL -> Done.
 
 ## Using it
 
