@@ -4,7 +4,7 @@
 // owner's own real browsing session, so there's nothing for 1688's
 // anti-bot system to block.
 
-import { normalizeSearchResponse, normalizeDetailResponse } from './_lib/normalize.js'
+import { normalizeSearchResponse, normalizeDetailResponse, mergeProductSummary } from './_lib/normalize.js'
 import { setCachedSearch } from './_lib/searchCache.js'
 import { getCachedProduct, setCachedProduct } from './_lib/productCache.js'
 
@@ -48,13 +48,14 @@ export default async function handler(req, res) {
       const normalized = normalizeSearchResponse({ items: body.items }, keyword, 1)
       await setCachedSearch(keyword, normalized)
 
-      // Same as the scraper bot: a brand-new item gets an immediate
-      // placeholder detail entry from its search-card summary, never
-      // overwriting one that already has real detail data.
+      // Every item gets its product-detail entry refreshed from this
+      // search-card summary (price, title, sold count, ...), merged onto
+      // whatever's already there rather than replacing it outright - see
+      // mergeProductSummary for why (keeps richer photos/description a
+      // dedicated detail-page capture may have already added).
       for (const item of normalized.items) {
-        if (!(await getCachedProduct(item.itemId))) {
-          await setCachedProduct(item.itemId, normalizeDetailResponse(item))
-        }
+        const existing = await getCachedProduct(item.itemId)
+        await setCachedProduct(item.itemId, mergeProductSummary(existing, item))
       }
 
       res.status(200).json({ ok: true, saved: normalized.items.length })

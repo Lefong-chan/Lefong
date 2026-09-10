@@ -1,12 +1,12 @@
 // Fills in the flat item/detail shape the rest of the app expects (see
 // src/components/ProductCard.vue, src/views/ProductDetail.vue) from what
-// scraper/index.js pulled off the page before writing it to Firebase.
-// The scraper already returns fields under roughly the right names - this
-// just applies defaults for anything a given page didn't have and
-// normalizes value formats (protocol-relative image URLs, price as a
-// number, etc.) so the rest of the app never has to special-case a
-// missing field. Used by the scraper bot only - the api/ handlers just
-// read back whatever it already wrote out in this shape.
+// scraper/index.js or bookmarklet/extract.js (via api/ingest.js) pulled
+// off a 1688 page before writing it to Firebase. Both already return
+// fields under roughly the right names - this just applies defaults for
+// anything a given page didn't have and normalizes value formats
+// (protocol-relative image URLs, price as a number, etc.) so the rest of
+// the app never has to special-case a missing field. Most other api/
+// handlers just read back whatever was already written out in this shape.
 
 function absoluteImage(url) {
   if (!url) return ''
@@ -41,6 +41,34 @@ export function normalizeSearchResponse(raw, keyword, page) {
     page: Number(page) || 1,
     total: items.length,
     items
+  }
+}
+
+// Re-searching a keyword later and finding the same item again (a search
+// result card, not its own dedicated detail page) should refresh whatever
+// a fresh look naturally changes - price, title, sold count, shop, link -
+// without clobbering richer data (extra photos, description) an earlier
+// dedicated detail-page capture already added, since a card summary never
+// carries those. Returns null only if `item` itself doesn't normalize.
+export function mergeProductSummary(existing, item) {
+  const fresh = normalizeDetailResponse(item)
+  if (!fresh) return existing || null
+  if (!existing) return fresh
+
+  const hasRichDetail = existing.images?.length > 1 || existing.description
+  return {
+    ...existing,
+    title: fresh.title,
+    price: fresh.price,
+    priceMax: fresh.priceMax,
+    sales: fresh.sales,
+    shopName: fresh.shopName,
+    link: fresh.link,
+    moq: fresh.moq,
+    unit: fresh.unit,
+    image: hasRichDetail ? existing.image : fresh.image,
+    images: hasRichDetail ? existing.images : fresh.images,
+    description: existing.description || fresh.description
   }
 }
 

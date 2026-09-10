@@ -15,9 +15,9 @@ let observer = null
 let keywordCursor = 0
 
 // Categories from /api/categories (a small curated list of 1688 search
-// keywords, see api/_lib/scraper1688.js) when that loads something usable;
-// otherwise this reliable fixed list keeps the filter row from ever
-// showing empty.
+// keywords, see api/_lib/scrapeTargets.js) when that loads something
+// usable; otherwise this reliable fixed list keeps the filter row from
+// ever showing empty.
 const FALLBACK_CHIPS = [
   { type: 'keyword', value: 'phone case', label: 'Phone Case' },
   { type: 'keyword', value: 'keychain', label: 'Keychain' },
@@ -55,7 +55,16 @@ async function loadBatch(isInitial) {
       : activeChip.value.type === 'category'
         ? await getTrendingProducts({ categoryId: activeChip.value.value })
         : await getTrendingProducts({ keyword: activeChip.value.value })
-    products.value = isInitial ? data.items : [...products.value, ...data.items]
+    if (isInitial) {
+      products.value = data.items
+    } else {
+      // The trending pool is picked randomly each call (see api/trending.js)
+      // and can draw the same keyword twice in a row, especially while only
+      // a few keywords have real data - de-dupe by itemId so "load more"
+      // never re-shows a card already on screen.
+      const seen = new Set(products.value.map((p) => p.itemId))
+      products.value = [...products.value, ...data.items.filter((p) => !seen.has(p.itemId))]
+    }
   } catch (e) {
     if (isInitial) error.value = e.message
     // A failed "load more" attempt just stays quiet - the grid already has content,

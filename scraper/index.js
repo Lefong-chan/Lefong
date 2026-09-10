@@ -19,7 +19,7 @@
 
 import 'dotenv/config'
 import { CATEGORIES, DEFAULT_KEYWORDS } from '../api/_lib/scrapeTargets.js'
-import { normalizeSearchResponse, normalizeDetailResponse } from '../api/_lib/normalize.js'
+import { normalizeSearchResponse, normalizeDetailResponse, mergeProductSummary } from '../api/_lib/normalize.js'
 import { getCachedSearch, setCachedSearch } from '../api/_lib/searchCache.js'
 import { getCachedProduct, setCachedProduct } from '../api/_lib/productCache.js'
 import { scrapeSearch, scrapeDetail } from './lib/scrape1688.js'
@@ -88,15 +88,17 @@ async function indexKeyword(keyword) {
   await setCachedSearch(keyword, normalized)
   console.log(`${normalized.items.length} items`)
 
-  // A brand-new item gets an immediate placeholder detail entry straight
-  // from its search-result summary (title/price/image already known, no
-  // extra request needed) so it's viewable right away rather than 404ing
-  // until its own detail page happens to get scraped. Never overwrites an
-  // item that already has a real detail entry.
+  // Every item's product-detail entry gets refreshed from this search-
+  // result summary (price, title, sold count, ...) - a brand-new item
+  // gets an immediate placeholder so it's viewable before its own detail
+  // page is ever scraped, and an already-known one picks up whatever
+  // changed since the last time this keyword was indexed. Merged rather
+  // than replaced outright - see mergeProductSummary for why (keeps
+  // richer photos/description a dedicated detail-page capture may have
+  // already added).
   for (const item of normalized.items) {
-    if (!(await getCachedProduct(item.itemId))) {
-      await setCachedProduct(item.itemId, normalizeDetailResponse(item))
-    }
+    const existing = await getCachedProduct(item.itemId)
+    await setCachedProduct(item.itemId, mergeProductSummary(existing, item))
   }
 
   return normalized.items

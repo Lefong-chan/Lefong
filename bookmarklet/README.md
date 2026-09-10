@@ -51,19 +51,38 @@ typing/pasting a `javascript:` link directly into the main address bar
 
 ## Using it
 
-1. Browse m.1688.com normally and search for something (e.g.
-   `m.1688.com/offer_search/-6D7033.html?keywords=phone case`) or open a
-   product's page.
+The same bookmark works on all three kinds of m.1688.com page - which one
+runs is decided automatically from the page's URL, nothing to switch:
+
+1. Browse m.1688.com normally and either search for something (e.g.
+   `m.1688.com/offer_search/-6D7033.html?keywords=phone case`), open a
+   product's page, or just sit on 1688's own homepage
+   (`m.1688.com/`).
 2. Open your bookmarks and tap the one you saved.
 3. A popup reports what happened ("OK! 11 produit voarakitra." or an
-   error). On a search page, everything visible on that page is sent
-   under that search keyword; on a product page, that product's full
-   detail (photos, description) is sent.
+   error):
+   - **Search page** - everything visible is sent under that search
+     keyword; this is what the site's own search box and category chips
+     read from.
+   - **Product page** - that one product's full detail (extra photos,
+     description) is sent, filling in beyond what a search-card summary
+     alone has.
+   - **Homepage** - sent under a fixed slot the site's Home page mixes in
+     for variety, alongside its regular keyword list. 1688's homepage
+     wraps a lot of its own cards in an ad-click-tracker link rather than
+     a real product link, so this can find noticeably fewer items than a
+     search page does, or none at all some days - that's expected, not a
+     bug, whatever real links happen to be there still get sent.
 4. Check the site (`/api/search?keyword=...` or the product's page) -
-   should reflect what you just sent within moments.
+   should reflect what you just sent within moments. Re-sending a keyword
+   or product already indexed updates it in place (price, title, sold
+   count, ...) rather than duplicating it.
 
 Repeat for as many keywords/products as you want indexed - there's no
-rate limit or cooldown here, since it's not automated at all.
+rate limit or cooldown here, since it's not automated at all. If you'd
+rather have separate bookmarks for clarity, save two with the exact same
+URL and just name them differently (e.g. "1688 Search" and "1688 Home") -
+the code is identical either way, since it auto-detects the page.
 
 ## If it stops working
 
