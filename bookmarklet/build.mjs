@@ -20,13 +20,18 @@ const minified = source
   .filter(Boolean)
   .join('\n')
 
-const bookmarklet = `javascript:${minified}`
+// URL-encoded, not the raw multi-line form: a mobile bookmark's URL field
+// is a single-line box, and pasting real newlines into one is what a
+// prior real attempt seems to have silently swallowed. Percent-encoding
+// keeps everything on one line with no character a form field would try
+// to "clean up" (quotes, newlines, etc.) - browsers decode a javascript:
+// bookmark's URL before running it, so this behaves identically to the
+// raw form once tapped.
+const bookmarklet = `javascript:${encodeURIComponent(minified)}`
 
-writeFileSync(
-  join(dir, 'bookmarklet.txt'),
-  `Raw (try this first - paste as the bookmark's URL):\n\n${bookmarklet}\n\n` +
-    `URL-encoded (use this instead if your browser mangles the raw version - e.g. strips quotes):\n\n` +
-    `javascript:${encodeURIComponent(minified)}\n`
-)
+// bookmarklet.txt holds nothing but this one line on purpose - it's
+// meant to be selected and copied whole, with no surrounding text to
+// accidentally include or have to strip out first.
+writeFileSync(join(dir, 'bookmarklet.txt'), bookmarklet)
 
-console.log(`Wrote bookmarklet.txt (${bookmarklet.length} chars raw)`)
+console.log(`Wrote bookmarklet.txt (${bookmarklet.length} chars)`)

@@ -11,21 +11,24 @@ instead of.
 
 ## One-time setup
 
-**1. Pick a secret and set it on Vercel.** Any random string works, e.g.
-`sino2026secret`. On Vercel: Project Settings -> Environment Variables ->
-add `INGEST_SECRET` with that value, then redeploy (or just wait for the
-next deploy) so `/api/ingest` picks it up.
+**1. Pick a secret and set it on Vercel.** Any random string works. On
+Vercel: Project Settings -> Environment Variables -> add `INGEST_SECRET`
+with that value, then redeploy (or just wait for the next deploy) so
+`/api/ingest` picks it up. `bookmarklet/extract.js`'s `CONFIG.secret`
+already has the site owner's chosen value baked in - if you ever change
+`INGEST_SECRET` on Vercel, update it there too and regenerate (`node
+build.mjs` inside `bookmarklet/`) before re-copying step 2's file.
 
-**2. Put that same secret into the bookmarklet.** Open
-`bookmarklet/bookmarklet.txt` in this repo (view it on GitHub - tap the
-file, then the "Raw" button) and copy the "Raw" bookmarklet text (the
-long line starting with `javascript:;(function`). If your domain isn't
-`lefong.vercel.app`, or you changed `INGEST_SECRET`, edit
-`bookmarklet/extract.js`'s `CONFIG` first and regenerate (`node build.mjs`
-inside `bookmarklet/`) before copying - otherwise the copy from
-`bookmarklet.txt` already has the placeholder secret that needs replacing:
-find `PASTE_YOUR_INGEST_SECRET_HERE` in the copied text and replace it
-with your actual secret before saving the bookmark in step 3.
+**2. Copy the bookmarklet text.** Open `bookmarklet/bookmarklet.txt` in
+this repo on GitHub, tap it, then tap "Raw". Select all and copy - the
+whole file is exactly one line meant to be copied whole, nothing else in
+it to strip out first. (It's URL-encoded rather than plain-text
+JavaScript, on purpose: a mobile bookmark's URL field is a single-line
+box, and pasting real newlines into one has been observed to get silently
+dropped by at least one Android Chrome build. Percent-encoding keeps it
+on one line with nothing a form field would try to "clean up" - the
+browser decodes it the same as the plain form once the bookmark is
+tapped.)
 
 **3. Save it as a bookmark, with that text as the URL.** Browsers block
 typing/pasting a `javascript:` link directly into the main address bar
@@ -35,14 +38,10 @@ everywhere:
 - **Android Chrome:** bookmark any page first (star icon, or menu ->
   "Add to bookmarks"). Then menu (⋮) -> Bookmarks -> find that bookmark ->
   tap the three dots next to it -> Edit -> replace the URL field with the
-  bookmarklet text -> Save. Name it something like "1688 -> Lefong".
+  copied text -> tap the back arrow to save. Name it something like "1688
+  -> Lefong".
 - **iOS Safari:** bookmark any page (share icon -> Add Bookmark). Then
   Bookmarks -> Edit -> tap that bookmark -> replace the URL -> Done.
-
-If the browser strips quotes or otherwise mangles the raw version, use
-the URL-encoded alternative further down in `bookmarklet.txt` instead -
-functionally identical, just safer for a form field that tries to
-"clean up" what you paste.
 
 ## Using it
 
@@ -72,6 +71,9 @@ rate limit or cooldown here, since it's not automated at all.
   that file is what needs updating.
 - Nothing happens at all when tapped - the bookmark's URL likely got
   saved without the full `javascript:...` text (mobile browsers
-  sometimes truncate very long pasted text in form fields). Try the
-  shorter URL-encoded version, or split viewing the raw text into a note
-  app first to copy it fully before pasting into the bookmark editor.
+  sometimes truncate very long pasted text in form fields, or leave out
+  characters from the middle). Reopen the bookmark's Edit screen and
+  check the URL field starts with `javascript:%3B` and ends with `%7D)()`
+  - if it's shorter than that or cuts off mid-way, redo the copy/paste
+  (copying from a notes app instead of directly off the GitHub page can
+  help if the browser's copy button is the thing truncating it).
