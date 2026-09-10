@@ -17,9 +17,12 @@ import { adminDb } from './firebaseAdmin.js'
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
 function keyFor(keyword) {
-  // RTDB keys can't contain . $ # [ ] / - hex-encode the raw (possibly
+  // Case-insensitive: "Telephone" typed into the site's own search box
+  // must hit the same cache entry the bookmarklet saved under "telephone"
+  // while browsing 1688, regardless of which casing either side used.
+  // RTDB keys can't contain . $ # [ ] / - hex-encode the (possibly
   // Chinese) keyword so any input is a safe key.
-  return Buffer.from(keyword, 'utf8').toString('hex')
+  return Buffer.from(keyword.toLowerCase(), 'utf8').toString('hex')
 }
 
 export async function getCachedSearch(keyword) {
