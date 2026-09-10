@@ -21,3 +21,12 @@ export const CATEGORIES = [
 ]
 
 export const DEFAULT_KEYWORDS = ['phone case', 'keychain', 'usb cable', 'bluetooth earphone', 'power bank', 'memory card', 'watch', 'sunglasses', 'backpack', 'toy']
+
+// Pseudo-keyword the bookmarklet (bookmarklet/extract.js) saves under when
+// tapped on m.1688.com's own homepage instead of a search/product page -
+// there's no real search keyword for "whatever's on the home feed today",
+// so this fixed string is the cache slot for it. Must match
+// CONFIG.homeKeyword there exactly. Mixed into api/trending.js's keyword
+// pool so the site's own Home page draws from it too, for variety beyond
+// just the fixed keyword/category list.
+export const HOME_FEED_KEYWORD = '__1688_home__'

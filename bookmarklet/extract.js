@@ -12,7 +12,11 @@
 ;(function () {
   var CONFIG = {
     api: 'https://lefong.vercel.app/api/ingest',
-    secret: 'lefong2026secret'
+    secret: 'lefong2026secret',
+    // Must match api/_lib/scrapeTargets.js's HOME_FEED_KEYWORD exactly -
+    // the fixed cache slot the site's Home page reads from for whatever
+    // this last found on 1688's own homepage feed.
+    homeKeyword: '__1688_home__'
   }
 
   function firstNumber(text) {
@@ -119,8 +123,11 @@
       })
   }
 
+  // Same bookmark works on all three page types - which branch runs is
+  // decided purely from the current URL, nothing to pick manually.
   var isSearchPage = location.pathname.indexOf('/offer_search/') !== -1
   var isDetailPage = /\/offer\/\d+\.html/.test(location.pathname)
+  var isHomePage = location.hostname === 'm.1688.com' && (location.pathname === '/' || location.pathname === '')
 
   if (isSearchPage) {
     var keyword = new URLSearchParams(location.search).get('keywords') || ''
@@ -139,7 +146,19 @@
     } else {
       send({ type: 'product', detail: detail })
     }
+  } else if (isHomePage) {
+    // 1688's homepage recommendation feed wraps most of its own cards in
+    // an ad-click-tracker redirect (dj.1688.com/...) rather than a direct
+    // /offer/ link, so a lot of what's visible here gets filtered out by
+    // extractCards() (no recoverable real item id) - whatever's left,
+    // real product links elsewhere on the page, still gets sent.
+    var homeItems = extractCards()
+    if (!homeItems.length) {
+      alert("Tsy nahita produit azo raisina teto amin'ny Accueil (mety ho tena ilay pejy ity, fa efa lasa amin'ny ad-tracker daholo ny lien).")
+    } else {
+      send({ type: 'search', keyword: CONFIG.homeKeyword, items: homeItems })
+    }
   } else {
-    alert('Ity pejy ity dia tsy pejy fikarohana na pejy produit 1688. Mitadiava teny voalohany, na sokafy produit iray.')
+    alert('Ity pejy ity dia tsy pejy fikarohana, produit, na Accueil an\'ny 1688. Mitadiava teny voalohany, sokafy produit iray, na mankanesa any amin\'ny m.1688.com mivantana.')
   }
 })()

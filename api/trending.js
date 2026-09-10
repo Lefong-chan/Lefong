@@ -1,5 +1,5 @@
 import { getCachedSearch } from './_lib/searchCache.js'
-import { DEFAULT_KEYWORDS } from './_lib/scrapeTargets.js'
+import { DEFAULT_KEYWORDS, HOME_FEED_KEYWORD } from './_lib/scrapeTargets.js'
 
 // The homepage "trending" grid draws only from what the scraper bot has
 // already indexed (see _lib/searchCache.js) - there's no live fallback
@@ -12,9 +12,13 @@ import { DEFAULT_KEYWORDS } from './_lib/scrapeTargets.js'
 const ITEMS_LIMIT = 24
 const POOL_SIZE = 4
 
+// HOME_FEED_KEYWORD (whatever the bookmarklet last captured off 1688's own
+// homepage) is mixed in here alongside the fixed keyword list, so the
+// site's own Home page gets some variety beyond just those keywords once
+// that's been captured at least once.
 function pickKeywords(requested) {
   const pool = requested ? [requested] : []
-  const shuffled = [...DEFAULT_KEYWORDS].sort(() => Math.random() - 0.5)
+  const shuffled = [...DEFAULT_KEYWORDS, HOME_FEED_KEYWORD].sort(() => Math.random() - 0.5)
   for (const kw of shuffled) {
     if (pool.length >= POOL_SIZE) break
     if (!pool.includes(kw)) pool.push(kw)
