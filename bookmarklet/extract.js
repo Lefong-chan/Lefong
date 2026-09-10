@@ -12,7 +12,7 @@
 ;(function () {
   var CONFIG = {
     api: 'https://lefong.vercel.app/api/ingest',
-    secret: 'PASTE_YOUR_INGEST_SECRET_HERE'
+    secret: 'lefong2026secret'
   }
 
   function firstNumber(text) {
