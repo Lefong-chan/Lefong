@@ -3,6 +3,9 @@ import { onBeforeUnmount, onMounted, reactive } from 'vue'
 
 const state = reactive({ top: 0, height: 40, visible: false, canScroll: false })
 let hideTimer = null
+let resizeObserver = null
+let headerH = 0
+let footerH = 0
 
 function measure() {
   const viewportH = window.innerHeight
@@ -11,9 +14,10 @@ function measure() {
   state.canScroll = maxScroll > 4
   if (!state.canScroll) return
 
-  const trackTop = 12
-  const trackHeight = viewportH - trackTop * 2
-  const thumbHeight = Math.max(36, (viewportH / scrollHeight) * trackHeight)
+  const gap = 8
+  const trackTop = headerH + gap
+  const trackHeight = Math.max(viewportH - headerH - footerH - gap * 2, 0)
+  const thumbHeight = Math.min(trackHeight, Math.max(28, (viewportH / scrollHeight) * trackHeight))
   const progress = Math.min(Math.max(window.scrollY / maxScroll, 0), 1)
 
   state.height = thumbHeight
@@ -30,14 +34,32 @@ function onScroll() {
   }, 2000)
 }
 
-onMounted(() => {
+function onFrameSizeChange(header, footer) {
+  headerH = header?.offsetHeight ?? 0
+  footerH = footer?.offsetHeight ?? 0
   measure()
+}
+
+let onWindowResize = null
+
+onMounted(() => {
+  const header = document.querySelector('.top-bar')
+  const footer = document.querySelector('.bottom-nav')
+
+  onFrameSizeChange(header, footer)
+  onWindowResize = () => onFrameSizeChange(header, footer)
+
+  resizeObserver = new ResizeObserver(onWindowResize)
+  if (header) resizeObserver.observe(header)
+  if (footer) resizeObserver.observe(footer)
+
   window.addEventListener('scroll', onScroll, { passive: true })
-  window.addEventListener('resize', measure)
+  window.addEventListener('resize', onWindowResize)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
-  window.removeEventListener('resize', measure)
+  window.removeEventListener('resize', onWindowResize)
+  resizeObserver?.disconnect()
   clearTimeout(hideTimer)
 })
 </script>
@@ -61,7 +83,7 @@ onBeforeUnmount(() => {
   background: var(--primary-light);
   opacity: 0;
   transition: opacity 0.5s ease;
-  z-index: 50;
+  z-index: 15;
   pointer-events: none;
 }
 
