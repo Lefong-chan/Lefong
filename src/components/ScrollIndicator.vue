@@ -77,8 +77,8 @@ onBeforeUnmount(() => {
 .scroll-indicator {
   position: fixed;
   left: 50%;
-  transform: translateX(calc(min(480px, 100vw) / 2 - 10px));
-  width: 4px;
+  transform: translateX(calc(min(480px, 100vw) / 2 - 2px));
+  width: 1px;
   border-radius: 10px;
   background: var(--primary-light);
   opacity: 0;

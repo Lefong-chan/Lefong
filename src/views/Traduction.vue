@@ -32,7 +32,7 @@ function tryTranslate(event) {
       </div>
 
       <button type="button" class="swap-btn ripple-wrap pressable" @click="swap($event)" aria-label="Changer de sens">
-        ⇄
+        <i class="fa-solid fa-right-left"></i>
       </button>
 
       <div class="lang-pill target">
