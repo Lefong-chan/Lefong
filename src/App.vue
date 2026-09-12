@@ -9,20 +9,30 @@ import Expressions from './views/Expressions.vue'
 
 const tabs = [
   { key: 'vocabulaire', label: 'Vocabulaire', icon: '📚', subtitle: 'Apprends un nouveau mot chaque jour', emoji: '📚', component: Vocabulaire },
-  { key: 'traduction', label: 'Traduction', icon: '🔄', subtitle: 'Traduire du français vers le malgache', emoji: '🔄', component: Traduction },
+  { key: 'traduction', label: 'Traduction', icon: '🌐', subtitle: 'Traduire du français vers le malgache', emoji: '🌐', component: Traduction },
   { key: 'grammaire', label: 'Grammaire', icon: '✏️', subtitle: 'Explications simples et claires', emoji: '✏️', component: Grammaire },
   { key: 'expressions', label: 'Expressions', icon: '💬', subtitle: 'Expressions locales et courantes', emoji: '💬', component: Expressions },
 ]
 
 const active = ref('vocabulaire')
 const current = computed(() => tabs.find((t) => t.key === active.value))
+
+const isScrolling = ref(false)
+let scrollTimer = null
+function onContentScroll() {
+  isScrolling.value = true
+  clearTimeout(scrollTimer)
+  scrollTimer = setTimeout(() => {
+    isScrolling.value = false
+  }, 500)
+}
 </script>
 
 <template>
   <div class="app-shell">
     <TopBar :title="current.label" :subtitle="current.subtitle" :emoji="current.emoji" />
 
-    <main class="content">
+    <main class="content" :class="{ 'is-scrolling': isScrolling }" @scroll="onContentScroll">
       <Transition name="page-slide" mode="out-in">
         <component :is="current.component" :key="current.key" />
       </Transition>

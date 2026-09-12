@@ -25,8 +25,6 @@ function toggleFav(id, event) {
 
 <template>
   <div class="page">
-    <p class="intro">Nouveaux mots chaque jour — un petit sac plein de mots français 🎒</p>
-
     <label class="search-bar card">
       <span class="search-icon">🔍</span>
       <input v-model="query" type="text" class="search-input" placeholder="Rechercher un mot..." />
@@ -55,13 +53,6 @@ function toggleFav(id, event) {
 <style scoped>
 .page {
   padding: 18px 18px 12px;
-}
-
-.intro {
-  margin: 0 0 16px;
-  font-weight: 700;
-  color: var(--text-soft);
-  font-size: 0.9rem;
 }
 
 .search-bar {

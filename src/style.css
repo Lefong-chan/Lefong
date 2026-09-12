@@ -65,16 +65,19 @@ button {
 
 #app {
   min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   justify-content: center;
 }
 
-/* Simulate an Android phone app frame on wider screens, full-bleed on mobile */
+/* Simulate an Android phone app frame on wider screens, full-bleed on mobile.
+   `svh` (not `dvh`) keeps this height stable while the browser's address bar
+   shows/hides on scroll, avoiding a resize-triggered repaint that clips the header. */
 .app-shell {
   width: 100%;
   max-width: var(--app-max-width);
   height: 100vh;
-  height: 100dvh;
+  height: 100svh;
   background: var(--bg);
   position: relative;
   display: flex;
@@ -92,7 +95,7 @@ button {
   }
   .app-shell {
     height: calc(100vh - 56px);
-    height: calc(100dvh - 56px);
+    height: calc(100svh - 56px);
     border-radius: 34px;
   }
 }
@@ -165,4 +168,9 @@ button {
 ::-webkit-scrollbar-thumb {
   background: var(--primary-light);
   border-radius: 10px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.is-scrolling::-webkit-scrollbar-thumb {
+  opacity: 1;
 }
