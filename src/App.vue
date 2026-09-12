@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import TopBar from './components/TopBar.vue'
 import BottomNav from './components/BottomNav.vue'
 import Vocabulaire from './views/Vocabulaire.vue'
@@ -17,22 +17,30 @@ const tabs = [
 const active = ref('vocabulaire')
 const current = computed(() => tabs.find((t) => t.key === active.value))
 
-const isScrolling = ref(false)
-let scrollTimer = null
-function onContentScroll() {
-  isScrolling.value = true
-  clearTimeout(scrollTimer)
-  scrollTimer = setTimeout(() => {
-    isScrolling.value = false
-  }, 500)
+let hideTimer = null
+function onWindowScroll() {
+  document.documentElement.classList.add('is-scrolling')
+  clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => {
+    document.documentElement.classList.remove('is-scrolling')
+  }, 2000)
 }
+
+onMounted(() => {
+  window.addEventListener('scroll', onWindowScroll, { passive: true })
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onWindowScroll)
+  clearTimeout(hideTimer)
+  document.documentElement.classList.remove('is-scrolling')
+})
 </script>
 
 <template>
   <div class="app-shell">
     <TopBar :title="current.label" :subtitle="current.subtitle" :emoji="current.emoji" />
 
-    <main class="content" :class="{ 'is-scrolling': isScrolling }" @scroll="onContentScroll">
+    <main class="content">
       <Transition name="page-slide" mode="out-in">
         <component :is="current.component" :key="current.key" />
       </Transition>
@@ -45,8 +53,5 @@ function onContentScroll() {
 <style scoped>
 .content {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 </style>
