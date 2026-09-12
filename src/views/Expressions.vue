@@ -5,8 +5,6 @@ import { spawnRipple } from '../composables/useRipple'
 
 <template>
   <div class="page">
-    <p class="intro">Expressions courantes de la vie quotidienne 💬</p>
-
     <div class="expr-list">
       <div
         v-for="e in fitenenana"
@@ -24,13 +22,6 @@ import { spawnRipple } from '../composables/useRipple'
 <style scoped>
 .page {
   padding: 18px 18px 12px;
-}
-
-.intro {
-  margin: 0 0 18px;
-  font-weight: 700;
-  color: var(--text-soft);
-  font-size: 0.9rem;
 }
 
 .expr-list {

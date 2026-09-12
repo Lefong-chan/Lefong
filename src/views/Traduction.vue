@@ -25,8 +25,6 @@ function tryTranslate(event) {
 
 <template>
   <div class="page">
-    <p class="intro">Traduis les mots — la vraie traduction arrive bientôt 🚧</p>
-
     <div class="lang-bar card">
       <div class="lang-pill">
         <span>{{ langs[from].flag }}</span>
@@ -63,7 +61,7 @@ function tryTranslate(event) {
     </div>
 
     <button type="button" class="translate-btn ripple-wrap pressable" @click="tryTranslate($event)">
-      Traduire 🔄
+      Traduire
     </button>
 
     <Transition name="toast-pop">
@@ -76,13 +74,6 @@ function tryTranslate(event) {
 .page {
   padding: 18px 18px 24px;
   position: relative;
-}
-
-.intro {
-  margin: 0 0 18px;
-  font-weight: 700;
-  color: var(--text-soft);
-  font-size: 0.9rem;
 }
 
 .lang-bar {

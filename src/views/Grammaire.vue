@@ -4,8 +4,6 @@ import { lesona } from '../data/grammaire'
 
 <template>
   <div class="page">
-    <p class="intro">Leçons de base pour apprendre la grammaire française 📐</p>
-
     <div v-for="l in lesona" :key="l.id" class="lesson card">
       <span class="lesson-emoji">{{ l.emoji }}</span>
       <div class="lesson-titles">
@@ -19,13 +17,6 @@ import { lesona } from '../data/grammaire'
 <style scoped>
 .page {
   padding: 18px 18px 12px;
-}
-
-.intro {
-  margin: 0 0 18px;
-  font-weight: 700;
-  color: var(--text-soft);
-  font-size: 0.9rem;
 }
 
 .lesson {
