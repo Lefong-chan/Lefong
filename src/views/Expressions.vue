@@ -5,7 +5,7 @@ import { spawnRipple } from '../composables/useRipple'
 
 <template>
   <div class="page">
-    <p class="intro">Fitenenana mahazatra amin'ny fiainana andavanandro 💬</p>
+    <p class="intro">Expressions courantes de la vie quotidienne 💬</p>
 
     <div class="expr-list">
       <div
@@ -14,11 +14,8 @@ import { spawnRipple } from '../composables/useRipple'
         class="expr-card card ripple-wrap pressable"
         @pointerdown="spawnRipple($event)"
       >
-        <span class="expr-emoji">{{ e.emoji }}</span>
-        <div class="expr-text">
-          <p class="expr-fr">{{ e.fr }}</p>
-          <p class="expr-mg">{{ e.mg }}</p>
-        </div>
+        <p class="expr-fr">{{ e.fr }}</p>
+        <p class="expr-mg">{{ e.mg }}</p>
       </div>
     </div>
   </div>
@@ -43,27 +40,19 @@ import { spawnRipple } from '../composables/useRipple'
 }
 
 .expr-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--mint);
   animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-.expr-card:nth-child(3n + 2) {
-  background: linear-gradient(135deg, #fff, #fff3e6);
+.expr-card:nth-child(4n + 2) {
+  border-left-color: var(--accent);
 }
-
-.expr-emoji {
-  font-size: 1.5rem;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: var(--bg-alt);
+.expr-card:nth-child(4n + 3) {
+  border-left-color: var(--gold);
+}
+.expr-card:nth-child(4n + 4) {
+  border-left-color: var(--primary-light);
 }
 
 .expr-fr {
@@ -74,7 +63,7 @@ import { spawnRipple } from '../composables/useRipple'
 }
 
 .expr-mg {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   font-weight: 700;
   color: var(--text-soft);
   font-size: 0.82rem;

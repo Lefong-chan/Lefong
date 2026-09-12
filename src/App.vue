@@ -8,10 +8,10 @@ import Grammaire from './views/Grammaire.vue'
 import Expressions from './views/Expressions.vue'
 
 const tabs = [
-  { key: 'vocabulaire', label: 'Vocabulaire', icon: '📚', subtitle: "Mianara teny vaovao isan'andro", emoji: '📚', component: Vocabulaire },
-  { key: 'traduction', label: 'Traduction', icon: '🔄', subtitle: 'Adikao frantsay ↔ malagasy', emoji: '🔄', component: Traduction },
-  { key: 'grammaire', label: 'Grammaire', icon: '✏️', subtitle: 'Hazavaina tsotra sy mora azo', emoji: '✏️', component: Grammaire },
-  { key: 'expressions', label: 'Expressions', icon: '💬', subtitle: 'Fitenim-paritra sy fomba fiteny', emoji: '💬', component: Expressions },
+  { key: 'vocabulaire', label: 'Vocabulaire', icon: '📚', subtitle: 'Apprends un nouveau mot chaque jour', emoji: '📚', component: Vocabulaire },
+  { key: 'traduction', label: 'Traduction', icon: '🔄', subtitle: 'Traduire du français vers le malgache', emoji: '🔄', component: Traduction },
+  { key: 'grammaire', label: 'Grammaire', icon: '✏️', subtitle: 'Explications simples et claires', emoji: '✏️', component: Grammaire },
+  { key: 'expressions', label: 'Expressions', icon: '💬', subtitle: 'Expressions locales et courantes', emoji: '💬', component: Expressions },
 ]
 
 const active = ref('vocabulaire')
