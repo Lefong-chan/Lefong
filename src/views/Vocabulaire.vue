@@ -1,43 +1,54 @@
 <script setup>
-import { reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { kategoria } from '../data/vocabulaire'
 import { spawnRipple } from '../composables/useRipple'
 
 const favorites = reactive(new Set())
+const query = ref('')
 
-function toggleFav(key, event) {
+const allWords = kategoria.flatMap((cat) =>
+  cat.teny.map((word) => ({ ...word, id: `${cat.id}-${word.fr}` }))
+)
+
+const filteredWords = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q) return allWords
+  return allWords.filter((w) => w.fr.toLowerCase().includes(q) || w.mg.toLowerCase().includes(q))
+})
+
+function toggleFav(id, event) {
   spawnRipple(event)
-  if (favorites.has(key)) favorites.delete(key)
-  else favorites.add(key)
+  if (favorites.has(id)) favorites.delete(id)
+  else favorites.add(id)
 }
 </script>
 
 <template>
   <div class="page">
-    <p class="intro">Teny vaovao isan'andro — kitapo kely feno teny frantsay 🎒</p>
+    <p class="intro">Nouveaux mots chaque jour — un petit sac plein de mots français 🎒</p>
 
-    <section v-for="cat in kategoria" :key="cat.id" class="category">
-      <div class="category-head">
-        <span class="cat-emoji">{{ cat.emoji }}</span>
-        <h2>{{ cat.anarana }}</h2>
-      </div>
+    <label class="search-bar card">
+      <span class="search-icon">🔍</span>
+      <input v-model="query" type="text" class="search-input" placeholder="Rechercher un mot..." />
+    </label>
 
-      <div class="word-grid">
-        <div v-for="word in cat.teny" :key="cat.id + word.fr" class="word-card card">
-          <div class="word-fr">{{ word.fr }}</div>
-          <div class="word-mg">{{ word.mg }}</div>
-          <button
-            type="button"
-            class="fav-btn ripple-wrap pressable"
-            :class="{ active: favorites.has(cat.id + word.fr) }"
-            @click="toggleFav(cat.id + word.fr, $event)"
-            :aria-label="'Tehirizo ' + word.fr"
-          >
-            {{ favorites.has(cat.id + word.fr) ? '⭐' : '☆' }}
-          </button>
-        </div>
+    <div class="word-grid">
+      <div v-for="word in filteredWords" :key="word.id" class="word-card card">
+        <div class="word-fr">{{ word.fr }}</div>
+        <div class="word-mg">{{ word.mg }}</div>
+        <button
+          type="button"
+          class="fav-btn ripple-wrap pressable"
+          :class="{ active: favorites.has(word.id) }"
+          @click="toggleFav(word.id, $event)"
+          :aria-label="'Enregistrer ' + word.fr"
+        >
+          {{ favorites.has(word.id) ? '⭐' : '☆' }}
+        </button>
       </div>
-    </section>
+    </div>
+
+    <p v-if="!filteredWords.length" class="empty">Aucun mot trouvé pour « {{ query }} »</p>
   </div>
 </template>
 
@@ -47,31 +58,39 @@ function toggleFav(key, event) {
 }
 
 .intro {
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   font-weight: 700;
   color: var(--text-soft);
   font-size: 0.9rem;
 }
 
-.category {
-  margin-bottom: 22px;
-}
-
-.category-head {
+.search-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
 }
 
-.cat-emoji {
-  font-size: 1.3rem;
+.search-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
-.category-head h2 {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--primary-dark);
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.search-input::placeholder {
+  color: var(--text-soft);
+  font-weight: 600;
 }
 
 .word-grid {
@@ -83,18 +102,7 @@ function toggleFav(key, event) {
 .word-card {
   position: relative;
   padding: 14px 34px 14px 14px;
-  border-left: 4px solid var(--mint);
   animation: pop-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.word-card:nth-child(4n + 2) {
-  border-left-color: var(--accent);
-}
-.word-card:nth-child(4n + 3) {
-  border-left-color: var(--gold);
-}
-.word-card:nth-child(4n + 4) {
-  border-left-color: var(--primary-light);
 }
 
 .word-fr {
@@ -125,6 +133,14 @@ function toggleFav(key, event) {
 
 .fav-btn.active {
   animation: bounce-star 0.4s ease;
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-soft);
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-top: 30px;
 }
 
 @keyframes bounce-star {

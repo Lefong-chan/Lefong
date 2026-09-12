@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { spawnRipple } from '../composables/useRipple'
 
-const langs = { fr: { label: 'Frantsay', flag: '🇫🇷' }, mg: { label: 'Malagasy', flag: '🇲🇬' } }
+const langs = { fr: { label: 'Français', flag: '🇫🇷' }, mg: { label: 'Malgache', flag: '🇲🇬' } }
 
 const from = ref('fr')
 const to = ref('mg')
@@ -25,7 +25,7 @@ function tryTranslate(event) {
 
 <template>
   <div class="page">
-    <p class="intro">Adikao ny teny — mbola ho avy ny dikanteny tena izy 🚧</p>
+    <p class="intro">Traduis les mots — la vraie traduction arrive bientôt 🚧</p>
 
     <div class="lang-bar card">
       <div class="lang-pill">
@@ -33,7 +33,7 @@ function tryTranslate(event) {
         <span>{{ langs[from].label }}</span>
       </div>
 
-      <button type="button" class="swap-btn ripple-wrap pressable" @click="swap($event)" aria-label="Ovao ny lalana">
+      <button type="button" class="swap-btn ripple-wrap pressable" @click="swap($event)" aria-label="Changer de sens">
         ⇄
       </button>
 
@@ -48,7 +48,7 @@ function tryTranslate(event) {
         v-model="text"
         class="input-area"
         rows="4"
-        :placeholder="`Soraty eto ny teny amin'ny ${langs[from].label}...`"
+        :placeholder="`Écris ici le texte en ${langs[from].label}...`"
       />
       <div class="panel-footer">
         <span class="char-count">{{ text.length }}/500</span>
@@ -58,16 +58,16 @@ function tryTranslate(event) {
     <div class="panel card output-panel">
       <div class="output-empty">
         <span class="output-icon">✨</span>
-        <p>Eto no hiseho ny dikanteny amin'ny {{ langs[to].label }}</p>
+        <p>La traduction en {{ langs[to].label }} apparaîtra ici</p>
       </div>
     </div>
 
     <button type="button" class="translate-btn ripple-wrap pressable" @click="tryTranslate($event)">
-      Mandika 🔄
+      Traduire 🔄
     </button>
 
     <Transition name="toast-pop">
-      <div v-if="showToast" class="toast">Ho avy tsy ho ela — miomana izahay ✨</div>
+      <div v-if="showToast" class="toast">Bientôt disponible — on y travaille ✨</div>
     </Transition>
   </div>
 </template>
