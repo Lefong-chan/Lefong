@@ -40,8 +40,6 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -65,24 +63,22 @@ button {
 
 #app {
   min-height: 100vh;
-  min-height: 100svh;
   display: flex;
   justify-content: center;
 }
 
-/* Simulate an Android phone app frame on wider screens, full-bleed on mobile.
-   `svh` (not `dvh`) keeps this height stable while the browser's address bar
-   shows/hides on scroll, avoiding a resize-triggered repaint that clips the header. */
+/* The whole document scrolls naturally (no fixed-height shell, no internal
+   scroll container) so the header can never get clipped by a mobile browser's
+   address bar resizing/animating — the bottom nav uses `position: sticky`
+   instead of relying on exact viewport-height math. */
 .app-shell {
   width: 100%;
   max-width: var(--app-max-width);
-  height: 100vh;
-  height: 100svh;
+  min-height: 100vh;
   background: var(--bg);
   position: relative;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   box-shadow: var(--shadow-lg);
 }
 
@@ -94,9 +90,7 @@ button {
     background: radial-gradient(circle at 50% 0%, #efe1ff 0%, #d9c6f2 55%, #c6b3e6 100%);
   }
   .app-shell {
-    height: calc(100vh - 56px);
-    height: calc(100svh - 56px);
-    border-radius: 34px;
+    min-height: calc(100vh - 56px);
   }
 }
 
@@ -165,12 +159,12 @@ button {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb {
   background: var(--primary-light);
   border-radius: 10px;
   opacity: 0;
   transition: opacity 0.5s ease;
 }
-.is-scrolling::-webkit-scrollbar-thumb {
+html.is-scrolling::-webkit-scrollbar-thumb {
   opacity: 1;
 }

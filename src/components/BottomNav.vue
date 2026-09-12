@@ -39,7 +39,8 @@ function select(key, event) {
 
 <style scoped>
 .bottom-nav {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   flex-shrink: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);

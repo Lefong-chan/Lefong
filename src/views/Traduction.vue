@@ -55,7 +55,6 @@ function tryTranslate(event) {
 
     <div class="panel card output-panel">
       <div class="output-empty">
-        <span class="output-icon">✨</span>
         <p>La traduction en {{ langs[to].label }} apparaîtra ici</p>
       </div>
     </div>
@@ -168,12 +167,6 @@ function tryTranslate(event) {
 .output-empty {
   text-align: center;
   color: var(--text-soft);
-}
-
-.output-icon {
-  font-size: 1.6rem;
-  display: block;
-  margin-bottom: 6px;
 }
 
 .output-empty p {
