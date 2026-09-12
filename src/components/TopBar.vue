@@ -21,12 +21,14 @@ defineProps({
 <style scoped>
 .top-bar {
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 30;
   padding: 22px 20px 26px;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   border-bottom-left-radius: 28px;
   border-bottom-right-radius: 28px;
   box-shadow: var(--shadow-md);
-  position: relative;
   overflow: hidden;
 }
 
