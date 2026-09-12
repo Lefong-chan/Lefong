@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import TopBar from './components/TopBar.vue'
 import BottomNav from './components/BottomNav.vue'
+import ScrollIndicator from './components/ScrollIndicator.vue'
 import Vocabulaire from './views/Vocabulaire.vue'
 import Traduction from './views/Traduction.vue'
 import Grammaire from './views/Grammaire.vue'
@@ -16,28 +17,12 @@ const tabs = [
 
 const active = ref('vocabulaire')
 const current = computed(() => tabs.find((t) => t.key === active.value))
-
-let hideTimer = null
-function onWindowScroll() {
-  document.documentElement.classList.add('is-scrolling')
-  clearTimeout(hideTimer)
-  hideTimer = setTimeout(() => {
-    document.documentElement.classList.remove('is-scrolling')
-  }, 2000)
-}
-
-onMounted(() => {
-  window.addEventListener('scroll', onWindowScroll, { passive: true })
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('scroll', onWindowScroll)
-  clearTimeout(hideTimer)
-  document.documentElement.classList.remove('is-scrolling')
-})
 </script>
 
 <template>
   <div class="app-shell">
+    <ScrollIndicator />
+
     <TopBar :title="current.label" :subtitle="current.subtitle" :emoji="current.emoji" />
 
     <main class="content">
