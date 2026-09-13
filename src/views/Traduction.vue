@@ -7,19 +7,46 @@ const langs = { fr: { label: 'Français', flag: '🇫🇷' }, mg: { label: 'Malg
 const from = ref('fr')
 const to = ref('mg')
 const text = ref('')
-const showToast = ref(false)
-let toastTimer = null
+const result = ref('')
+const errorMsg = ref('')
+const loading = ref(false)
 
 function swap(event) {
   spawnRipple(event)
   ;[from.value, to.value] = [to.value, from.value]
+  result.value = ''
+  errorMsg.value = ''
 }
 
-function tryTranslate(event) {
+async function tryTranslate(event) {
   spawnRipple(event)
-  showToast.value = true
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => (showToast.value = false), 1800)
+  const q = text.value.trim()
+  if (!q || loading.value) return
+
+  loading.value = true
+  result.value = ''
+  errorMsg.value = ''
+
+  try {
+    const res = await fetch('https://libretranslate.com/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q, source: from.value, target: to.value, format: 'text' }),
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      throw new Error(data?.error || `Erreur ${res.status}`)
+    }
+    result.value = data?.translatedText || ''
+  } catch (err) {
+    if (err instanceof TypeError) {
+      errorMsg.value = 'Impossible de contacter le service de traduction. Vérifie ta connexion.'
+    } else {
+      errorMsg.value = err.message || 'Le service de traduction est indisponible.'
+    }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -53,19 +80,30 @@ function tryTranslate(event) {
       </div>
     </div>
 
-    <div class="panel card output-panel">
-      <div class="output-empty">
+    <div class="panel card output-panel" :class="{ 'has-error': errorMsg }">
+      <div v-if="loading" class="output-state">
+        <i class="fa-solid fa-spinner fa-spin"></i>
+        <p>Fandikana eo am-pikarohana...</p>
+      </div>
+      <div v-else-if="errorMsg" class="output-state error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <p>{{ errorMsg }}</p>
+      </div>
+      <p v-else-if="result" class="output-result">{{ result }}</p>
+      <div v-else class="output-state">
         <p>La traduction en {{ langs[to].label }} apparaîtra ici</p>
       </div>
     </div>
 
-    <button type="button" class="translate-btn ripple-wrap pressable" @click="tryTranslate($event)">
-      Traduire
+    <button
+      type="button"
+      class="translate-btn ripple-wrap pressable"
+      :disabled="loading || !text.trim()"
+      @click="tryTranslate($event)"
+    >
+      <i v-if="loading" class="fa-solid fa-spinner fa-spin"></i>
+      <span>{{ loading ? 'Traduction...' : 'Traduire' }}</span>
     </button>
-
-    <Transition name="toast-pop">
-      <div v-if="showToast" class="toast">Bientôt disponible — on y travaille ✨</div>
-    </Transition>
   </div>
 </template>
 
@@ -162,18 +200,44 @@ function tryTranslate(event) {
   justify-content: center;
   background: var(--bg-alt);
   border: 2px dashed var(--primary-light);
+  transition: border-color 0.2s ease;
 }
 
-.output-empty {
+.output-panel.has-error {
+  border-color: var(--accent);
+}
+
+.output-state {
   text-align: center;
   color: var(--text-soft);
 }
 
-.output-empty p {
+.output-state i {
+  font-size: 1.3rem;
+  display: block;
+  margin-bottom: 6px;
+  color: var(--primary);
+}
+
+.output-state.error i {
+  color: var(--accent-dark);
+}
+
+.output-state p {
   margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
   padding: 0 12px;
+}
+
+.output-result {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+  white-space: pre-wrap;
 }
 
 .translate-btn {
@@ -187,35 +251,14 @@ function tryTranslate(event) {
   font-size: 1rem;
   cursor: pointer;
   box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.toast {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 6px;
-  background: var(--primary-dark);
-  color: #fff;
-  text-align: center;
-  padding: 12px 16px;
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 0.82rem;
-  box-shadow: var(--shadow-md);
-}
-
-.toast-pop-enter-active {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
-}
-.toast-pop-leave-active {
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-.toast-pop-enter-from {
-  transform: translateY(14px) scale(0.95);
-  opacity: 0;
-}
-.toast-pop-leave-to {
-  transform: translateY(6px);
-  opacity: 0;
+.translate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
