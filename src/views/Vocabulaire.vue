@@ -1,9 +1,7 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { kategoria } from '../data/vocabulaire'
-import { spawnRipple } from '../composables/useRipple'
 
-const favorites = reactive(new Set())
 const query = ref('')
 
 const allWords = kategoria.flatMap((cat) =>
@@ -15,12 +13,6 @@ const filteredWords = computed(() => {
   if (!q) return allWords
   return allWords.filter((w) => w.fr.toLowerCase().includes(q) || w.mg.toLowerCase().includes(q))
 })
-
-function toggleFav(id, event) {
-  spawnRipple(event)
-  if (favorites.has(id)) favorites.delete(id)
-  else favorites.add(id)
-}
 </script>
 
 <template>
@@ -28,7 +20,8 @@ function toggleFav(id, event) {
     <label class="search-bar card">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
       <input
-        v-model="query"
+        :value="query"
+        @input="query = $event.target.value"
         type="text"
         class="search-input"
         placeholder="Rechercher un mot..."
@@ -52,15 +45,7 @@ function toggleFav(id, event) {
       <div v-for="word in filteredWords" :key="word.id" class="word-card card">
         <div class="word-fr">{{ word.fr }}</div>
         <div class="word-mg">{{ word.mg }}</div>
-        <button
-          type="button"
-          class="fav-btn ripple-wrap pressable"
-          :class="{ active: favorites.has(word.id) }"
-          @click="toggleFav(word.id, $event)"
-          :aria-label="'Enregistrer ' + word.fr"
-        >
-          {{ favorites.has(word.id) ? '⭐' : '☆' }}
-        </button>
+        <i class="fa-solid fa-circle-info info-icon"></i>
       </div>
     </div>
 
@@ -140,21 +125,13 @@ function toggleFav(id, event) {
   color: var(--text-soft);
 }
 
-.fav-btn {
+.info-icon {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  border: none;
-  background: transparent;
-  font-size: 1.05rem;
-  padding: 4px;
-  border-radius: 50%;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.fav-btn.active {
-  animation: bounce-star 0.4s ease;
+  top: 12px;
+  right: 12px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+  opacity: 0.5;
 }
 
 .empty {
@@ -163,18 +140,6 @@ function toggleFav(id, event) {
   font-weight: 700;
   font-size: 0.88rem;
   margin-top: 30px;
-}
-
-@keyframes bounce-star {
-  0% {
-    transform: scale(0.6);
-  }
-  60% {
-    transform: scale(1.35);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 @keyframes pop-in {
