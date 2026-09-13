@@ -26,8 +26,26 @@ function toggleFav(id, event) {
 <template>
   <div class="page">
     <label class="search-bar card">
-      <span class="search-icon">🔍</span>
-      <input v-model="query" type="text" class="search-input" placeholder="Rechercher un mot..." />
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input
+        v-model="query"
+        type="text"
+        class="search-input"
+        placeholder="Rechercher un mot..."
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      />
+      <button
+        v-if="query"
+        type="button"
+        class="clear-btn"
+        aria-label="Effacer la recherche"
+        @click="query = ''"
+      >
+        <i class="fa-solid fa-circle-xmark"></i>
+      </button>
     </label>
 
     <div class="word-grid">
@@ -64,12 +82,14 @@ function toggleFav(id, event) {
 }
 
 .search-icon {
-  font-size: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-soft);
   flex-shrink: 0;
 }
 
 .search-input {
   flex: 1;
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
@@ -82,6 +102,17 @@ function toggleFav(id, event) {
 .search-input::placeholder {
   color: var(--text-soft);
   font-weight: 600;
+}
+
+.clear-btn {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 2px;
+  cursor: pointer;
 }
 
 .word-grid {
