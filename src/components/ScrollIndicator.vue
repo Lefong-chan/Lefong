@@ -1,7 +1,11 @@
 <script setup>
-import { onBeforeUnmount, onMounted, reactive } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 
-const state = reactive({ top: 0, height: 40, visible: false, canScroll: false })
+const props = defineProps({
+  activeKey: { type: String, default: '' },
+})
+
+const state = reactive({ top: 0, height: 40, visible: false, canScroll: false, instant: false })
 let hideTimer = null
 let resizeObserver = null
 let headerH = 0
@@ -62,13 +66,27 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   clearTimeout(hideTimer)
 })
+
+watch(
+  () => props.activeKey,
+  async () => {
+    clearTimeout(hideTimer)
+    state.instant = true
+    state.visible = false
+    await nextTick()
+    measure()
+    requestAnimationFrame(() => {
+      state.instant = false
+    })
+  }
+)
 </script>
 
 <template>
   <div
     v-if="state.canScroll"
     class="scroll-indicator"
-    :class="{ visible: state.visible }"
+    :class="{ visible: state.visible, instant: state.instant }"
     :style="{ top: state.top + 'px', height: state.height + 'px' }"
   />
 </template>
@@ -77,8 +95,8 @@ onBeforeUnmount(() => {
 .scroll-indicator {
   position: fixed;
   left: 50%;
-  transform: translateX(calc(min(480px, 100vw) / 2 - 2px));
-  width: 1px;
+  transform: translateX(calc(min(480px, 100vw) / 2 - 6px));
+  width: 4px;
   border-radius: 10px;
   background: var(--primary-light);
   opacity: 0;
@@ -89,5 +107,9 @@ onBeforeUnmount(() => {
 
 .scroll-indicator.visible {
   opacity: 1;
+}
+
+.scroll-indicator.instant {
+  transition: none;
 }
 </style>

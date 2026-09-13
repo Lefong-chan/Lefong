@@ -21,7 +21,7 @@ const current = computed(() => tabs.find((t) => t.key === active.value))
 
 <template>
   <div class="app-shell">
-    <ScrollIndicator />
+    <ScrollIndicator :active-key="active" />
 
     <TopBar :title="current.label" :subtitle="current.subtitle" :emoji="current.emoji" />
 

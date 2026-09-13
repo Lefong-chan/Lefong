@@ -2,7 +2,7 @@ export const lesona = [
   {
     id: 'articles',
     lohateny: "Ny 'article' amin'ny teny frantsay",
-    emoji: '🔤',
+    emoji: '🏷️',
     fintina: "Le, La, Les — ny fomba fampiasa azy",
   },
   {
